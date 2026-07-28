@@ -1,19 +1,13 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AUTH_LOGIN_PATH } from '@/lib/auth-routes';
+import {
+  isLandingHost,
+  isPanelHost,
+  resolveDefaultLandingServerId,
+} from '@/lib/site-hosts';
 
 const AUTH_QUERY_KEYS = ['inviteToken', 'resetToken', 'ssoError'] as const;
-const DEFAULT_LANDING_SERVER_ID = 'mcabyzum';
-
-function resolveDefaultLandingServer(): string {
-  const fromEnv = process.env.DEFAULT_LANDING_SERVER?.trim();
-  if (fromEnv) return fromEnv;
-
-  const fromCompose = process.env.COMPOSE_PROJECT?.trim();
-  if (fromCompose) return fromCompose;
-
-  return DEFAULT_LANDING_SERVER_ID;
-}
 
 type HomeProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -34,11 +28,15 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(`${AUTH_LOGIN_PATH}?${authQuery.toString()}`);
   }
 
-  const host = (await headers()).get('host')?.toLowerCase() ?? '';
-  const landingServer = resolveDefaultLandingServer();
+  const host = (await headers()).get('host');
 
-  if (host.startsWith('mc.abyzum.com') || landingServer) {
+  if (isLandingHost(host)) {
+    const landingServer = resolveDefaultLandingServerId();
     redirect(`/landing/?server=${encodeURIComponent(landingServer)}`);
+  }
+
+  if (isPanelHost(host)) {
+    redirect(AUTH_LOGIN_PATH);
   }
 
   redirect(AUTH_LOGIN_PATH);

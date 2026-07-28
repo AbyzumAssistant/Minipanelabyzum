@@ -1,8 +1,9 @@
 # Compose para Dockploy — construye desde el código local (fork MCABYZUM).
 # En Dockploy: Compose file = docker-compose.dockploy.yml
 # Env: pegar variables de .env.dockploy.example (FRONTEND_URL, FRONTEND_PORT=3001, etc.)
-# Domains: frontend → mc.abyzum.com, container port 3000, HTTPS on
-# Panel admin: https://mc.abyzum.com/admin — Landing raíz: DEFAULT_LANDING_SERVER
+# Domains (servicio frontend, puerto contenedor 3000, HTTPS on):
+#   - mccubneuifbu23d.abyzum.com  → panel
+#   - mc.abyzum.com                 → landing
 
 services:
   backend:
@@ -44,9 +45,15 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-/api/backend}
       - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - PANEL_URL=${PANEL_URL:-}
+      - LANDING_URL=${LANDING_URL:-}
+      - PANEL_HOST=${PANEL_HOST:-}
+      - LANDING_HOST=${LANDING_HOST:-}
       - DEFAULT_LANDING_SERVER=${DEFAULT_LANDING_SERVER:-mcabyzum}
       - COMPOSE_PROJECT=${COMPOSE_PROJECT:-mcabyzum}
       - NEXT_PUBLIC_DEFAULT_LANGUAGE=${NEXT_PUBLIC_DEFAULT_LANGUAGE:-es}
+      - NEXT_PUBLIC_MC_SERVER_HOST=${NEXT_PUBLIC_MC_SERVER_HOST:-}
     depends_on:
       - backend
     networks:
