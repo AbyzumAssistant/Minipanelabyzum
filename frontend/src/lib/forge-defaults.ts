@@ -19,16 +19,17 @@ export const FORGE_119_PROFILE = {
   maxPlayers: '20',
   onlineMode: true,
   enableRcon: true,
-  port: '25565',
+  port: '25569',
   modrinthLoader: 'forge',
   modrinthDownloadDependencies: 'required' as const,
 };
 
 export function applyForge119Defaults(config: Partial<ServerConfig>): ServerConfig {
   return {
-    ...(config as ServerConfig),
     ...FORGE_119_PROFILE,
+    ...(config as ServerConfig),
     id: config.id ?? 'Server',
     serverName: config.serverName ?? 'Forge 1.19 Server',
+    port: config.port ?? FORGE_119_PROFILE.port,
   };
 }

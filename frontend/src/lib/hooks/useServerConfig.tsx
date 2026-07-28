@@ -15,7 +15,7 @@ const defaultConfig: ServerConfig = applyForge119Defaults({
   id: 'Server',
   active: false,
   serverName: 'Forge 1.19 Server',
-  port: '25565',
+  port: '25569',
   difficulty: 'hard',
   maxPlayers: '10',
   ops: '',
@@ -166,7 +166,7 @@ export function useServerConfig(serverId: string) {
         const serverConfig = await fetchServerConfig(serverId);
 
         if (!serverConfig.port) {
-          serverConfig.port = serverId === 'daily' ? '25565' : '25566';
+          serverConfig.port = serverId === 'daily' ? '25565' : '25569';
         }
 
         if (!serverConfig.minecraftVersion) {
