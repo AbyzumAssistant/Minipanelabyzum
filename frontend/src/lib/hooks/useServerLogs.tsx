@@ -153,11 +153,17 @@ export function useServerLogs(serverId: string) {
       const data = await getServerLogsStream(serverId, lineCount);
 
       if (data.logs.includes("Container not found")) {
-        setError({
-          type: "container_not_found",
-          message: t("containerNotFound"),
-        });
-        setLogs(t("serverNotRunning"));
+        if (data.status === "stopped") {
+          setError(null);
+          setHasErrors(false);
+          setLogs(t("serverNotRunning2"));
+        } else {
+          setError({
+            type: "container_not_found",
+            message: t("containerNotFound"),
+          });
+          setLogs(t("serverNotRunning"));
+        }
       } else if (data.logs.includes("Server not found")) {
         setError({
           type: "server_not_found",
