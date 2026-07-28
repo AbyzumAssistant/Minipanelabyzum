@@ -1,0 +1,10 @@
+MCABYZUM Launcher
+=================
+
+1. Extrae todo el contenido de este ZIP en una carpeta.
+2. Ejecuta MCABYZUM-Launcher.exe
+3. Se copian los mods a AppData\Roaming\MCABYZUM\<servidor>\mods
+4. La IP del servidor se copia al portapapeles.
+5. Abre Minecraft Forge 1.19.2 → Multijugador → Directo → pega la IP.
+
+Si no tienes Forge 1.19.2, instálalo desde el instalador oficial de Minecraft Forge.

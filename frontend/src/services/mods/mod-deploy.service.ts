@@ -217,3 +217,35 @@ export const fetchPublicDeployManifest = async (serverId: string): Promise<ModDe
   if (!res.ok) throw new Error('No se pudo cargar el manifiesto');
   return res.json();
 };
+
+export interface LauncherBuildStatus {
+  serverId: string;
+  built: boolean;
+  builtAt?: string;
+  fileName?: string;
+  modCount?: number;
+  launcherRevision?: number;
+  fileSize?: number;
+}
+
+export const getLauncherBuildStatus = async (serverId: string): Promise<LauncherBuildStatus> => {
+  const { data } = await api.get<LauncherBuildStatus>(`/modrinth/deploy/${serverId}/launcher/status`);
+  return data;
+};
+
+export const buildLauncherPack = async (serverId: string): Promise<LauncherBuildStatus> => {
+  const { data } = await api.post<LauncherBuildStatus>(
+    `/modrinth/deploy/${serverId}/launcher/build`,
+    {},
+    { timeout: 300000 },
+  );
+  return data;
+};
+
+export const downloadLauncherPack = async (serverId: string): Promise<Blob> => {
+  const { data } = await api.get<Blob>(`/modrinth/deploy/${serverId}/launcher/download`, {
+    timeout: 300000,
+    responseType: 'blob',
+  });
+  return data;
+};

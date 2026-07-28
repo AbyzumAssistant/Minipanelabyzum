@@ -1,0 +1,13 @@
+{
+  "name": "mcabyzum-launcher",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Bootstrapper MCABYZUM para Windows",
+  "main": "index.js",
+  "scripts": {
+    "build:exe": "pkg index.js --targets node18-win-x64 --output ../../backend/src/assets/launcher/MCABYZUM-Launcher.exe --compress GZip"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}

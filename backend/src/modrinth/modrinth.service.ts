@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import * as archiver from 'archiver';
 import * as fs from 'fs/promises';
+import { createReadStream, createWriteStream } from 'fs';
 import * as path from 'path';
 import {
   FORGE_119_GAME_VERSION,
@@ -69,6 +70,16 @@ export interface LauncherServerInfo {
   host: string;
   port: number;
   name: string;
+}
+
+export interface LauncherBuildStatus {
+  serverId: string;
+  built: boolean;
+  builtAt?: string;
+  fileName?: string;
+  modCount?: number;
+  launcherRevision?: number;
+  fileSize?: number;
 }
 
 export interface ModDeployManifest {
@@ -1215,5 +1226,182 @@ export class ModrinthService {
     if (!loader) return true;
     if (mod.supportedLoaders.length === 0) return true;
     return mod.supportedLoaders.includes(loader);
+  }
+
+  private launcherAssetsDir(): string {
+    return path.join(__dirname, '..', 'assets', 'launcher');
+  }
+
+  private launcherBuildDir(serverId: string): string {
+    const baseDir = this.configService.get<string>('baseDir') ?? process.env.BASE_DIR ?? '.';
+    return path.join(baseDir, 'servers', serverId, 'launcher-build');
+  }
+
+  private launcherBuildZipPath(serverId: string): string {
+    return path.join(this.launcherBuildDir(serverId), `MCABYZUM-${serverId}-Launcher.zip`);
+  }
+
+  private launcherBuildMetaPath(serverId: string): string {
+    return path.join(this.launcherBuildDir(serverId), 'meta.json');
+  }
+
+  async getLauncherBuildStatus(serverId: string): Promise<LauncherBuildStatus> {
+    const zipPath = this.launcherBuildZipPath(serverId);
+    try {
+      const stat = await fs.stat(zipPath);
+      let meta: Record<string, unknown> = {};
+      try {
+        meta = JSON.parse(await fs.readFile(this.launcherBuildMetaPath(serverId), 'utf-8'));
+      } catch {
+        /* no meta yet */
+      }
+      return {
+        serverId,
+        built: true,
+        builtAt: typeof meta.builtAt === 'string' ? meta.builtAt : stat.mtime.toISOString(),
+        fileName: path.basename(zipPath),
+        modCount: typeof meta.modCount === 'number' ? meta.modCount : undefined,
+        launcherRevision:
+          typeof meta.launcherRevision === 'number' ? meta.launcherRevision : undefined,
+        fileSize: stat.size,
+      };
+    } catch {
+      return { serverId, built: false };
+    }
+  }
+
+  async buildLauncherPack(serverId: string, panelUrl?: string): Promise<LauncherBuildStatus> {
+    const manifest = await this.getDeployManifest(serverId);
+    if (!manifest || manifest.mods.length === 0) {
+      throw new HttpException(
+        'Publica mods y sincroniza el launcher antes de construir el paquete.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!manifest.server?.host || !manifest.server?.port) {
+      throw new HttpException(
+        'Sincroniza el launcher para incluir IP y puerto del servidor.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const zipPath = this.launcherBuildZipPath(serverId);
+    await fs.mkdir(path.dirname(zipPath), { recursive: true });
+    const tempPath = `${zipPath}.tmp`;
+    const output = createWriteStream(tempPath);
+    const archive = archiver('zip', { zlib: { level: 6 } });
+
+    const config = {
+      serverId,
+      server: manifest.server,
+      panelUrl: panelUrl?.replace(/\/$/, '') ?? '',
+      manifestUrl: panelUrl
+        ? `${panelUrl.replace(/\/$/, '')}/api/backend/modrinth/deploy/${serverId}/manifest`
+        : `/api/backend/modrinth/deploy/${serverId}/manifest`,
+      gameVersion: manifest.gameVersion,
+      loader: manifest.loader,
+      forgeBuild: manifest.forgeBuild ?? '43.3.0',
+      launcherRevision: manifest.launcherRevision ?? 0,
+      builtAt: new Date().toISOString(),
+    };
+
+    const assetsDir = this.launcherAssetsDir();
+    const exePath = path.join(assetsDir, 'MCABYZUM-Launcher.exe');
+    const jsPath = path.join(assetsDir, 'launcher.js');
+    const readmePath = path.join(assetsDir, 'LEEME.txt');
+    const iconPath = path.join(assetsDir, 'icon.svg');
+
+    archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' });
+    archive.append(JSON.stringify(config, null, 2), { name: 'config.json' });
+
+    try {
+      await fs.access(exePath);
+      archive.file(exePath, { name: 'MCABYZUM-Launcher.exe' });
+    } catch {
+      archive.file(jsPath, { name: 'launcher.js' });
+      archive.append(
+        '@echo off\r\ncd /d "%~dp0"\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL%==0 (node launcher.js) else (echo Instala Node.js o usa MCABYZUM-Launcher.exe)\r\npause\r\n',
+        { name: 'MCABYZUM-Launcher.bat' },
+      );
+    }
+
+    try {
+      archive.file(readmePath, { name: 'LEEME.txt' });
+    } catch {
+      /* optional */
+    }
+
+    try {
+      archive.file(iconPath, { name: 'icon.svg' });
+    } catch {
+      /* optional */
+    }
+
+    for (const mod of manifest.mods) {
+      try {
+        const response = await axios.get<ArrayBuffer>(mod.downloadUrl, {
+          responseType: 'arraybuffer',
+          timeout: 120000,
+        });
+        archive.append(Buffer.from(response.data), { name: path.posix.join('mods', mod.fileName) });
+      } catch (error) {
+        console.error(`Error downloading mod ${mod.slug} for launcher pack:`, error);
+      }
+    }
+
+    if (manifest.resourcePack?.url) {
+      try {
+        const response = await axios.get<ArrayBuffer>(manifest.resourcePack.url, {
+          responseType: 'arraybuffer',
+          timeout: 120000,
+        });
+        const packName = `${manifest.resourcePack.name || 'resourcepack'}.zip`.replace(/[^\w.-]+/g, '_');
+        archive.append(Buffer.from(response.data), {
+          name: path.posix.join('resourcepack', packName),
+        });
+      } catch (error) {
+        console.error('Error downloading resource pack for launcher pack:', error);
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      output.on('close', () => resolve());
+      output.on('error', reject);
+      archive.on('error', reject);
+      archive.pipe(output);
+      archive.finalize();
+    });
+
+    await fs.rename(tempPath, zipPath);
+    await fs.writeFile(
+      this.launcherBuildMetaPath(serverId),
+      JSON.stringify(
+        {
+          builtAt: config.builtAt,
+          modCount: manifest.mods.length,
+          launcherRevision: manifest.launcherRevision ?? 0,
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+
+    return this.getLauncherBuildStatus(serverId);
+  }
+
+  async openLauncherPackStream(
+    serverId: string,
+    panelUrl?: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; name: string }> {
+    const status = await this.getLauncherBuildStatus(serverId);
+    if (!status.built) {
+      await this.buildLauncherPack(serverId, panelUrl);
+    }
+    const zipPath = this.launcherBuildZipPath(serverId);
+    return {
+      stream: createReadStream(zipPath),
+      name: path.basename(zipPath),
+    };
   }
 }

@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ServerConfig } from "@/lib/types/types";
 import { SaveModeControl } from "../molecules/SaveModeControl";
-import { Settings, Server, Cpu, Package, Terminal, ScrollText, Code, Layers, FolderOpen, Smartphone, Activity, Clock, Rocket } from "lucide-react";
+import { Settings, Server, Cpu, Package, Terminal, ScrollText, Code, Layers, FolderOpen, Smartphone, Activity, Clock, Rocket, Globe } from "lucide-react";
 import { useLanguage } from "@/lib/hooks/useLanguage";
 import { type TabSearchItem } from "./TabSearch";
 import { useServerNavStore, type ServerNavItem } from "@/lib/store/server-nav-store";
@@ -13,6 +13,7 @@ const CommandsTab = dynamic(() => import("../molecules/Tabs/CommandsTab").then(m
 const AdvancedTab = dynamic(() => import("../molecules/Tabs/AdvancedTab").then(mod => mod.AdvancedTab));
 const ModsTab = dynamic(() => import("../molecules/Tabs/ModsTab").then(mod => mod.ModsTab));
 const ModDeployTab = dynamic(() => import("../molecules/Tabs/ModDeployTab").then(mod => mod.ModDeployTab));
+const LandingTab = dynamic(() => import("../molecules/Tabs/LandingTab").then(mod => mod.LandingTab));
 const PaperPluginBuilderTab = dynamic(() => import("../molecules/Tabs/PaperPluginBuilderTab").then(mod => mod.PaperPluginBuilderTab));
 const PluginsTab = dynamic(() => import("../molecules/Tabs/PluginsTab").then(mod => mod.PluginsTab));
 const ResourcesTab = dynamic(() => import("../molecules/Tabs/ResourcesTab").then(mod => mod.ResourcesTab));
@@ -26,7 +27,7 @@ const ScheduledTasksTab = dynamic(() => import("../molecules/Tabs/ScheduledTasks
 
 // Fixed list of every possible tab value, used only to validate the URL hash
 // regardless of which tabs are currently visible for this edition/type.
-const ALL_TAB_VALUES = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "papermc", "plugins", "advanced", "logs", "commands", "files", "metrics", "tasks"];
+const ALL_TAB_VALUES = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "landing", "papermc", "plugins", "advanced", "logs", "commands", "files", "metrics", "tasks"];
 
 interface ServerConfigTabsProps {
   readonly serverId: string;
@@ -69,6 +70,7 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
     { value: "addons", label: t("addons"), icon: Package, group: "config", show: isBedrock, disabled: isServerRunning },
     { value: "mods", label: t("mods"), icon: Package, group: "config", show: showModsTab, disabled: isServerRunning },
     { value: "deploy", label: t("modDeployTitle"), icon: Rocket, group: "config", show: showDeployTab, disabled: isServerRunning },
+    { value: "landing", label: t("landingTabTitle"), icon: Globe, group: "config", show: showDeployTab, disabled: isServerRunning },
     { value: "papermc", label: t("paperMcBuilderTitle"), icon: Package, group: "config", show: showPaperMcTab, disabled: isServerRunning },
     { value: "plugins", label: t("plugins"), icon: Layers, group: "config", show: showPluginsTab, disabled: isServerRunning },
     { value: "advanced", label: t("advanced"), icon: Code, group: "config", show: true, disabled: isServerRunning },
@@ -194,7 +196,7 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
 
   useEffect(() => {
     if (isServerRunning) {
-      const disabledTabs = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "papermc", "plugins", "advanced", "files"];
+      const disabledTabs = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "landing", "papermc", "plugins", "advanced", "files"];
       if (disabledTabs.includes(activeTab)) {
         setActiveTab("logs");
       }
@@ -263,6 +265,12 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
               {showDeployTab && (
                 <TabsContent value="deploy" className="space-y-4 mt-0">
                   <ModDeployTab serverId={serverId} config={config} updateConfig={updateConfig} />
+                </TabsContent>
+              )}
+
+              {showDeployTab && (
+                <TabsContent value="landing" className="space-y-4 mt-0">
+                  <LandingTab serverId={serverId} config={config} />
                 </TabsContent>
               )}
 

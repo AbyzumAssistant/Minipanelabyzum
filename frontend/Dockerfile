@@ -6,8 +6,7 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN --mount=type=cache,target=/root/.npm \
     npm config set fetch-retries 5 || true && \
     npm config set fetch-retry-factor 2 || true && \
@@ -24,11 +23,24 @@ RUN --mount=type=cache,target=/root/.npm \
       sleep $((attempt * 15)); \
     done
 
+FROM base AS landing-deps
+WORKDIR /landing
+COPY landing/package.json landing/package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --fund=false --prefer-offline --progress=false || npm install --no-audit --fund=false
+
+FROM base AS landing-builder
+WORKDIR /landing
+COPY --from=landing-deps /landing/node_modules ./node_modules
+COPY landing/ ./
+RUN npm run build
+
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend/ ./
+COPY --from=landing-builder /landing/dist ./public/landing
 
 ARG NEXT_PUBLIC_BASE_PATH=""
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH

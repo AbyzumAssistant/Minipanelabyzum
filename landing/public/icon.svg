@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="MCABYZUM">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="#0f172a"/>
+  <rect x="16" y="16" width="96" height="96" rx="12" fill="url(#g)"/>
+  <rect x="24" y="24" width="80" height="24" fill="#166534"/>
+  <rect x="24" y="48" width="80" height="24" fill="#78716c"/>
+  <rect x="24" y="72" width="80" height="24" fill="#57534e"/>
+  <text x="64" y="112" text-anchor="middle" fill="#e2e8f0" font-family="Segoe UI,sans-serif" font-size="14" font-weight="700">MC</text>
+</svg>

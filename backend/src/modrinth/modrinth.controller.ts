@@ -124,6 +124,34 @@ export class ModrinthController {
     });
   }
 
+  @Get('deploy/:serverId/launcher/status')
+  async getLauncherBuildStatus(@Param('serverId') serverId: string) {
+    return this.modrinthService.getLauncherBuildStatus(serverId);
+  }
+
+  @Post('deploy/:serverId/launcher/build')
+  async buildLauncherPack(@Param('serverId') serverId: string) {
+    const panelUrl = process.env.FRONTEND_URL;
+    return this.modrinthService.buildLauncherPack(serverId, panelUrl);
+  }
+
+  @Public()
+  @Get('deploy/:serverId/launcher/download')
+  async downloadLauncherPack(@Param('serverId') serverId: string, @Res() res: Response): Promise<void> {
+    const panelUrl = process.env.FRONTEND_URL;
+    const { stream, name } = await this.modrinthService.openLauncherPackStream(serverId, panelUrl);
+
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.setHeader('Content-Type', 'application/zip');
+
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).send('Error building launcher pack');
+      }
+    });
+    stream.pipe(res);
+  }
+
   @Get('catalog/paper')
   async getPaperCatalogMeta() {
     return this.modrinthService.getPaperCatalogMeta();
