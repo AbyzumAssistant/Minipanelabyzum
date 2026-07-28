@@ -124,7 +124,7 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
       <div class="launcher-body">
         <div class="top-row">
           <div class="brand">
-            <img src="./icon.svg" alt="MCABYZUM" width="42" height="42" />
+            <img src="/landing/icon.svg" alt="MCABYZUM" width="42" height="42" />
             <span class="brand-name">mcabyzum</span>
           </div>
           <div class="badges">

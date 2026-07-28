@@ -41,7 +41,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
   const [lockClientResourcePacks, setLockClientResourcePacks] = useState(true);
 
   const landingBase = getPublicEnv('NEXT_PUBLIC_LANDING_URL').replace(/\/$/, '');
-  const joinUrl = `${landingBase}/landing?server=${encodeURIComponent(serverId)}`;
+  const joinUrl = `${landingBase}/landing/?server=${encodeURIComponent(serverId)}`;
 
   const loadManifest = useCallback(async () => {
     setLoading(true);

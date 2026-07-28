@@ -1,16 +1,25 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
 let cachedHtml: string | null = null;
+let cachedHtmlMtime = 0;
 
 async function readLandingHtml(): Promise<string> {
-  if (cachedHtml) return cachedHtml;
   const filePath = path.join(process.cwd(), 'public', 'landing', 'index.html');
-  cachedHtml = await readFile(filePath, 'utf-8');
-  return cachedHtml;
+  const { mtimeMs } = await stat(filePath);
+  if (cachedHtml && cachedHtmlMtime === mtimeMs) return cachedHtml;
+
+  let html = await readFile(filePath, 'utf-8');
+  if (!html.includes('<base ')) {
+    html = html.replace('<head>', '<head>\n    <base href="/landing/" />');
+  }
+
+  cachedHtml = html;
+  cachedHtmlMtime = mtimeMs;
+  return html;
 }
 
 export async function GET() {

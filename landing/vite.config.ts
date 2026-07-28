@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import obfuscator from 'rollup-plugin-obfuscator';
 
 export default defineConfig({
-  base: './',
+  base: '/landing/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,

@@ -37,7 +37,7 @@ export const LandingTab: FC<LandingTabProps> = ({ serverId, config }) => {
   const [downloading, setDownloading] = useState(false);
 
   const landingBase = getPublicEnv('NEXT_PUBLIC_LANDING_URL').replace(/\/$/, '');
-  const landingUrl = `${landingBase}/landing?server=${encodeURIComponent(serverId)}`;
+  const landingUrl = `${landingBase}/landing/?server=${encodeURIComponent(serverId)}`;
 
   const serverAddress = `${resolveMcServerHost(config.proxyHostname || undefined)}:${config.port || DEFAULT_MC_SERVER_PORT}`;
 
