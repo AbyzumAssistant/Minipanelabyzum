@@ -32,6 +32,27 @@ ROOT = bundle_root()
 CONFIG_PATH = ROOT / "config.json"
 UI_DIR = ROOT / "ui"
 
+# Instalador / panel — no deben quedar pisados por AppData antigua.
+DEPLOY_CONFIG_KEYS = frozenset(
+    {
+        "app_name",
+        "brand",
+        "minecraft_version",
+        "mod_loader",
+        "forge_version",
+        "panel_server_id",
+        "backend_url",
+        "server",
+        "java",
+        "offline_default_name",
+        "launcherRevision",
+        "builtAt",
+        "forge_build_hint",
+    }
+)
+PLACEHOLDER_HOSTS = frozenset({"", "play.mcabyzum.com", "mcabyzum.com", "localhost"})
+DEFAULT_SERVER_PORT = 25569
+
 
 def appdata_dir() -> Path:
     base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
@@ -40,20 +61,91 @@ def appdata_dir() -> Path:
     return path
 
 
-def load_config() -> dict:
-    candidates: list[Path] = [appdata_dir() / "config.json"]
+def _read_json(path: Path) -> dict | None:
+    if not path.is_file():
+        return None
+    try:
+        with path.open(encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _is_placeholder_host(host: str | None) -> bool:
+    return (host or "").strip().lower() in PLACEHOLDER_HOSTS
+
+
+def _deploy_config_candidates() -> list[Path]:
+    candidates: list[Path] = []
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).resolve().parent
-        candidates.insert(0, exe_dir.parent / "config.json")
-        candidates.insert(1, exe_dir / "config.json")
-    candidates.append(CONFIG_PATH)
+        candidates.extend(
+            [
+                exe_dir / "config.json",
+                exe_dir.parent / "config.json",
+                CONFIG_PATH,
+            ]
+        )
+    else:
+        candidates.append(CONFIG_PATH)
+    return candidates
 
-    for candidate in candidates:
-        if candidate.is_file():
-            with candidate.open(encoding="utf-8") as f:
-                return json.load(f)
+
+def normalize_server(server: dict | None, fallback: dict | None = None) -> dict:
+    current = dict(server or {})
+    backup = dict(fallback or {})
+    host = (current.get("host") or backup.get("host") or "").strip()
+    if _is_placeholder_host(host):
+        host = (backup.get("host") or "").strip()
+    if _is_placeholder_host(host):
+        host = "65.75.202.124"
+
+    port_raw = current.get("port", backup.get("port", DEFAULT_SERVER_PORT))
+    try:
+        port = int(port_raw)
+    except (TypeError, ValueError):
+        port = DEFAULT_SERVER_PORT
+
+    name = (current.get("name") or backup.get("name") or "Abyzum Server").strip()
+    return {"host": host, "port": port, "name": name or "Abyzum Server"}
+
+
+def merge_deploy_config(deploy: dict, overlay: dict | None = None) -> dict:
+    merged = dict(deploy)
+    for key, value in (overlay or {}).items():
+        if key not in DEPLOY_CONFIG_KEYS:
+            merged[key] = value
+    merged["server"] = normalize_server(
+        merged.get("server"),
+        deploy.get("server"),
+    )
+    return merged
+
+
+def load_config() -> dict:
+    deploy: dict | None = None
+    for candidate in _deploy_config_candidates():
+        deploy = _read_json(candidate)
+        if deploy:
+            break
+
+    overlay = _read_json(appdata_dir() / "config.json")
+    if deploy:
+        return merge_deploy_config(deploy, overlay)
+
+    if overlay:
+        overlay["server"] = normalize_server(overlay.get("server"))
+        return overlay
 
     raise FileNotFoundError("No se encontró config.json para MCABYZUM")
+
+
+def refresh_game_server_config(config: dict) -> None:
+    from forge_setup import write_mod_config
+
+    server = normalize_server(config.get("server"))
+    write_mod_config(minecraft_dir(), server, auto_join=True)
 
 
 def user_settings_path() -> Path:
@@ -75,9 +167,11 @@ def save_settings(data: dict) -> None:
 
 
 def save_runtime_config(config: dict) -> None:
+    normalized = merge_deploy_config(config)
     appdata_dir().joinpath("config.json").write_text(
-        json.dumps(config, indent=2), encoding="utf-8"
+        json.dumps(normalized, indent=2), encoding="utf-8"
     )
+    refresh_game_server_config(normalized)
 
 
 def minecraft_dir() -> Path:
@@ -94,6 +188,7 @@ class Api:
     def __init__(self, window: webview.Window | None = None):
         self.window = window
         self.config = load_config()
+        save_runtime_config(self.config)
         self._busy = False
         self._last_report: dict | None = None
 
@@ -292,6 +387,7 @@ class Api:
                 self.config,
                 status=lambda t: self._emit("mcabyzum:status", {"text": t}),
             )
+            self.config = merge_deploy_config(self.config)
             save_runtime_config(self.config)
             server = self.config["server"]
             new_version = self.config.get("minecraft_version", version)
@@ -307,6 +403,7 @@ class Api:
                     java=java_path,
                 )
             write_mod_config(minecraft_dir(), server, auto_join=True)
+            refresh_game_server_config(self.config)
 
             ram = self.config.get("java", {})
             min_ram = int(ram.get("min_ram_mb", 2048))

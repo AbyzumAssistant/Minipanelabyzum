@@ -15,6 +15,31 @@ StatusFn = Callable[[str], None]
 
 LOGIN_MOD_PREFIX = "mcabyzum-login"
 STATE_FILE = "launcher-sync.json"
+DEFAULT_SERVER_PORT = 25569
+PLACEHOLDER_HOSTS = frozenset({"", "play.mcabyzum.com", "mcabyzum.com", "localhost"})
+
+
+def _is_placeholder_host(host: str | None) -> bool:
+    return (host or "").strip().lower() in PLACEHOLDER_HOSTS
+
+
+def _normalize_server(server: dict, fallback: dict | None = None) -> dict:
+    current = dict(server or {})
+    backup = dict(fallback or {})
+    host = (current.get("host") or backup.get("host") or "").strip()
+    if _is_placeholder_host(host):
+        host = (backup.get("host") or "").strip()
+    if _is_placeholder_host(host):
+        host = "65.75.202.124"
+
+    port_raw = current.get("port", backup.get("port", DEFAULT_SERVER_PORT))
+    try:
+        port = int(port_raw)
+    except (TypeError, ValueError):
+        port = DEFAULT_SERVER_PORT
+
+    name = (current.get("name") or backup.get("name") or "Abyzum Server").strip()
+    return {"host": host, "port": port, "name": name or "Abyzum Server"}
 
 
 def manifest_url(backend_url: str, server_id: str) -> str:
@@ -148,21 +173,22 @@ def apply_server_from_manifest(
         return config
 
     merged = dict(config)
-    merged_server = dict(config.get("server") or {})
+    fallback_server = dict(config.get("server") or {})
+    merged_server = dict(fallback_server)
     merged_server["host"] = server.get("host") or merged_server.get("host")
-    merged_server["port"] = int(server.get("port") or merged_server.get("port") or 25565)
+    merged_server["port"] = server.get("port") or merged_server.get("port") or DEFAULT_SERVER_PORT
     merged_server["name"] = server.get("name") or merged_server.get("name")
-    merged["server"] = merged_server
+    merged["server"] = _normalize_server(merged_server, fallback_server)
 
     if manifest.get("gameVersion"):
         merged["minecraft_version"] = manifest["gameVersion"]
     if manifest.get("forgeBuild"):
         merged["forge_build_hint"] = manifest["forgeBuild"]
 
-    if mc_dir is not None and merged_server.get("host"):
+    if mc_dir is not None:
         from forge_setup import write_mod_config
 
-        write_mod_config(mc_dir, merged_server, auto_join=auto_join)
+        write_mod_config(mc_dir, merged["server"], auto_join=auto_join)
 
     return merged
 
