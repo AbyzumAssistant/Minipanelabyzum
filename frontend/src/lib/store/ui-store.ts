@@ -22,7 +22,7 @@ export const useUIStore = create<UIState>()(
       setHydrated: (hydrated: boolean) => set({ isHydrated: hydrated }),
     }),
     {
-      name: "minepanel-ui-storage",
+      name: "abyzumMC-ui-storage",
       partialize: (state) => ({ isSidebarCollapsed: state.isSidebarCollapsed }),
     }
   )

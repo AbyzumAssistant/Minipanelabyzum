@@ -341,7 +341,7 @@ function HomeContent() {
                 />
               </m.div>
               <span className="hidden font-minecraft text-xl text-transparent bg-linear-to-r from-emerald-300 to-emerald-500 bg-clip-text transition-all group-hover:from-emerald-400 group-hover:to-emerald-500 sm:inline">
-                Minepanel
+                abyzumMC
               </span>
             </Link>
             <div className="flex items-center gap-3">
@@ -352,40 +352,22 @@ function HomeContent() {
         </header>
 
         <main className="relative z-10 flex flex-1 flex-col items-center justify-center p-6">
-          <m.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mx-auto w-full max-w-md"
-          >
+          <div className="mx-auto w-full max-w-md">
             <div className="mb-8 space-y-4 text-center">
-              <m.h1
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
+              <h1
                 className="font-minecraft text-5xl font-bold text-white"
                 style={{
-                  textShadow: '0 0 20px rgba(157, 255, 63, 0.5), 0 0 40px rgba(157, 255, 63, 0.3)',
+                  textShadow: '0 0 20px rgba(56, 189, 248, 0.45), 0 0 40px rgba(14, 165, 233, 0.25)',
                 }}
               >
                 {t('welcome')}
-              </m.h1>
-              <m.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="text-lg text-gray-200"
-              >
+              </h1>
+              <p className="text-lg text-gray-200">
                 {view === 'setup' ? t('setupWelcomeDescription') : view === 'invite' ? t('acceptInvitationDesc') : t('welcomeDescription')}
-              </m.p>
+              </p>
             </div>
 
-            <m.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-              className="relative"
-            >
+            <div className="relative">
               <div className="absolute -inset-1 animate-pulse bg-linear-to-r from-emerald-600 via-green-500 to-emerald-600 opacity-30 blur-lg" />
 
               <div className="mc-panel relative backdrop-blur-md">
@@ -689,7 +671,7 @@ function HomeContent() {
                   </CardFooter>
                 </form>
               </div>
-            </m.div>
+            </div>
 
             <div className="mt-10 flex items-center justify-center space-x-6">
               <m.div
@@ -717,13 +699,13 @@ function HomeContent() {
                 <Image src="/images/creeper.webp" alt="Creeper" width={24} height={48} className="drop-shadow-lg" />
               </m.div>
             </div>
-          </m.div>
+          </div>
         </main>
 
         <footer className="relative z-10 bg-[var(--mc-stone)]/95 py-4 backdrop-blur-md" style={{ borderTop: "3px solid var(--mc-frame)" }}>
           <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-center md:flex-row md:text-left">
             <p className="text-sm text-gray-300">
-              &copy; {new Date().getFullYear()} Minepanel. {t('allRightsReserved')}
+              &copy; {new Date().getFullYear()} abyzumMC. {t('allRightsReserved')}
             </p>
             <div className="flex space-x-4 text-gray-300">
               <Link href={LINK} className="transition-all hover:scale-105 hover:text-emerald-400">

@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ServerConfig } from "@/lib/types/types";
 import { SaveModeControl } from "../molecules/SaveModeControl";
-import { Settings, Server, Cpu, Package, Terminal, ScrollText, Code, Layers, FolderOpen, Smartphone, Activity, Clock } from "lucide-react";
+import { Settings, Server, Cpu, Package, Terminal, ScrollText, Code, Layers, FolderOpen, Smartphone, Activity, Clock, Rocket } from "lucide-react";
 import { useLanguage } from "@/lib/hooks/useLanguage";
 import { type TabSearchItem } from "./TabSearch";
 import { useServerNavStore, type ServerNavItem } from "@/lib/store/server-nav-store";
@@ -12,10 +12,12 @@ const LogsTab = dynamic(() => import("../molecules/Tabs/LogsTab").then(mod => mo
 const CommandsTab = dynamic(() => import("../molecules/Tabs/CommandsTab").then(mod => mod.CommandsTab));
 const AdvancedTab = dynamic(() => import("../molecules/Tabs/AdvancedTab").then(mod => mod.AdvancedTab));
 const ModsTab = dynamic(() => import("../molecules/Tabs/ModsTab").then(mod => mod.ModsTab));
+const ModDeployTab = dynamic(() => import("../molecules/Tabs/ModDeployTab").then(mod => mod.ModDeployTab));
+const PaperPluginBuilderTab = dynamic(() => import("../molecules/Tabs/PaperPluginBuilderTab").then(mod => mod.PaperPluginBuilderTab));
 const PluginsTab = dynamic(() => import("../molecules/Tabs/PluginsTab").then(mod => mod.PluginsTab));
 const ResourcesTab = dynamic(() => import("../molecules/Tabs/ResourcesTab").then(mod => mod.ResourcesTab));
 const GeneralSettingsTab = dynamic(() => import("../molecules/Tabs/GeneralSettingsTab").then(mod => mod.GeneralSettingsTab));
-const ServerTypeTab = dynamic(() => import("../molecules/Tabs/ServerTypeTab").then(mod => mod.ServerTypeTab));
+const ServerTypeTab = dynamic(() => import("../molecules/Tabs/Forge119TypePanel").then(mod => mod.Forge119TypePanel));
 const BedrockSettingsTab = dynamic(() => import("../molecules/Tabs/BedrockSettingsTab").then(mod => mod.BedrockSettingsTab));
 const BedrockAddonsTab = dynamic(() => import("../molecules/Tabs/BedrockAddonsTab").then(mod => mod.BedrockAddonsTab));
 const FilesTab = dynamic(() => import("../molecules/Tabs/FilesTab").then(mod => mod.FilesTab));
@@ -24,7 +26,7 @@ const ScheduledTasksTab = dynamic(() => import("../molecules/Tabs/ScheduledTasks
 
 // Fixed list of every possible tab value, used only to validate the URL hash
 // regardless of which tabs are currently visible for this edition/type.
-const ALL_TAB_VALUES = ["type", "general", "resources", "bedrock", "addons", "mods", "plugins", "advanced", "logs", "commands", "files", "metrics", "tasks"];
+const ALL_TAB_VALUES = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "papermc", "plugins", "advanced", "logs", "commands", "files", "metrics", "tasks"];
 
 interface ServerConfigTabsProps {
   readonly serverId: string;
@@ -40,6 +42,7 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
   const { t } = useLanguage();
   const setNav = useServerNavStore((state) => state.setNav);
   const setActiveNav = useServerNavStore((state) => state.setActive);
+  const storeActive = useServerNavStore((state) => state.active);
   const clearNav = useServerNavStore((state) => state.clear);
 
   const serverName = config.serverName || serverId;
@@ -48,6 +51,8 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
 
   // Java-only tabs
   const showModsTab = isJava && (config.serverType === "FORGE" || config.serverType === "NEOFORGE" || config.serverType === "FABRIC" || config.serverType === "AUTO_CURSEFORGE" || config.serverType === "CURSEFORGE" || config.serverType === 'MODRINTH' || config.serverType === 'GTNH' || config.serverType === 'FTBA');
+  const showDeployTab = isJava && config.serverType === "FORGE";
+  const showPaperMcTab = isJava && config.serverType === "PAPER";
   const showPluginsTab = isJava && (config.serverType === "SPIGOT" || config.serverType === "PAPER" || config.serverType === "BUKKIT" || config.serverType === "PUFFERFISH" || config.serverType === "PURPUR" || config.serverType === "LEAF" || config.serverType === "FOLIA");
   const showResourcesTab = isJava; // JVM settings only apply to Java
   const showCommandsTab = isJava; // RCON only works with Java
@@ -63,6 +68,8 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
     { value: "bedrock", label: t("bedrock"), icon: Smartphone, group: "config", show: isBedrock, disabled: isServerRunning },
     { value: "addons", label: t("addons"), icon: Package, group: "config", show: isBedrock, disabled: isServerRunning },
     { value: "mods", label: t("mods"), icon: Package, group: "config", show: showModsTab, disabled: isServerRunning },
+    { value: "deploy", label: t("modDeployTitle"), icon: Rocket, group: "config", show: showDeployTab, disabled: isServerRunning },
+    { value: "papermc", label: t("paperMcBuilderTitle"), icon: Package, group: "config", show: showPaperMcTab, disabled: isServerRunning },
     { value: "plugins", label: t("plugins"), icon: Layers, group: "config", show: showPluginsTab, disabled: isServerRunning },
     { value: "advanced", label: t("advanced"), icon: Code, group: "config", show: true, disabled: isServerRunning },
     { value: "logs", label: t("logs"), icon: ScrollText, group: "operation", show: true, disabled: false },
@@ -158,6 +165,12 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
   }, [navSignature, serverId, serverName, setNav]);
 
   useEffect(() => {
+    if (storeActive && ALL_TAB_VALUES.includes(storeActive) && storeActive !== activeTab) {
+      setActiveTab(storeActive);
+    }
+  }, [storeActive, activeTab]);
+
+  useEffect(() => {
     setActiveNav(activeTab);
   }, [activeTab, setActiveNav]);
 
@@ -181,7 +194,7 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
 
   useEffect(() => {
     if (isServerRunning) {
-      const disabledTabs = ["type", "general", "resources", "bedrock", "addons", "mods", "plugins", "advanced", "files"];
+      const disabledTabs = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "papermc", "plugins", "advanced", "files"];
       if (disabledTabs.includes(activeTab)) {
         setActiveTab("logs");
       }
@@ -207,7 +220,13 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
       )}
 
       <form onSubmit={handleSubmit}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          setActiveNav(value);
+          if (typeof window !== 'undefined') {
+            window.location.hash = value;
+          }
+        }} className="w-full">
           <div className="mc-panel min-w-0 p-4 text-gray-200 min-h-[400px]">
               <TabsContent value="type" className="space-y-4 mt-0">
                 <ServerTypeTab config={config} updateConfig={updateConfig} />
@@ -237,7 +256,19 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
 
               {showModsTab && (
                 <TabsContent value="mods" className="space-y-4 mt-0">
-                  <ModsTab config={config} updateConfig={updateConfig} />
+                  <ModsTab serverId={serverId} config={config} updateConfig={updateConfig} />
+                </TabsContent>
+              )}
+
+              {showDeployTab && (
+                <TabsContent value="deploy" className="space-y-4 mt-0">
+                  <ModDeployTab serverId={serverId} config={config} updateConfig={updateConfig} />
+                </TabsContent>
+              )}
+
+              {showPaperMcTab && (
+                <TabsContent value="papermc" className="space-y-4 mt-0">
+                  <PaperPluginBuilderTab serverId={serverId} config={config} updateConfig={updateConfig} />
                 </TabsContent>
               )}
 

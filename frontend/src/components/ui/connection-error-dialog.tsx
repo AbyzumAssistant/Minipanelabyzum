@@ -82,7 +82,7 @@ export function ConnectionErrorDialog({ isOpen, onRetry }: ConnectionErrorDialog
 
         <div className="space-y-6 py-4">
           <m.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="bg-red-600/10 border border-red-600/30 rounded-lg p-4"
@@ -104,7 +104,7 @@ export function ConnectionErrorDialog({ isOpen, onRetry }: ConnectionErrorDialog
               {troubleshootingSteps.map((step, index) => (
                 <m.div
                   key={index}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={false}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 + index * 0.1 }}
                   className="bg-gray-800/40 border border-gray-700/40 rounded-lg p-3 hover:border-emerald-600/30 transition-colors"
@@ -124,7 +124,7 @@ export function ConnectionErrorDialog({ isOpen, onRetry }: ConnectionErrorDialog
           </div>
 
           <m.div
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
             className="bg-blue-600/10 border border-blue-600/30 rounded-lg p-4"

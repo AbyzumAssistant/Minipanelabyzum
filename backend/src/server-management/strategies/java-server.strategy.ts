@@ -239,6 +239,10 @@ export class JavaServerStrategy implements IServerStrategy {
     }
     if (config.modrinthLoader) env['MODRINTH_LOADER'] = config.modrinthLoader;
 
+    if (config.resourcePackUrl) env['RESOURCE_PACK'] = config.resourcePackUrl;
+    if (config.resourcePackSha1) env['RESOURCE_PACK_SHA1'] = config.resourcePackSha1;
+    if (config.requireResourcePack) env['REQUIRE_RESOURCE_PACK'] = 'true';
+
     // Only set MODPACK for pure MODRINTH server
     if (config.serverType === 'MODRINTH') {
       env['MODRINTH_MODPACK'] = config.modrinthModpack;

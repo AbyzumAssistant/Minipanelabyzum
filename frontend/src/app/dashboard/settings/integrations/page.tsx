@@ -285,7 +285,7 @@ export default function IntegrationsSettingsPage() {
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label className="text-gray-200">{t('smtpFrom')}</Label>
-                  <Input value={smtp.from} onChange={(e) => setSmtp({ ...smtp, from: e.target.value })} placeholder="Minepanel <no-reply@example.com>" className="bg-gray-800 border-gray-700 text-white" />
+                  <Input value={smtp.from} onChange={(e) => setSmtp({ ...smtp, from: e.target.value })} placeholder="abyzumMC <no-reply@example.com>" className="bg-gray-800 border-gray-700 text-white" />
                 </div>
               </div>
               <div className="flex items-center gap-2">

@@ -174,6 +174,10 @@ export interface ServerConfig {
   modrinthDefaultVersionType?: 'release' | 'beta' | 'alpha';
   modrinthLoader?: string;
 
+  resourcePackUrl?: string;
+  resourcePackSha1?: string;
+  requireResourcePack?: boolean;
+
   modrinthModpack?: string;
 
   // GTNH specific

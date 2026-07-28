@@ -59,8 +59,9 @@ import Link from 'next/link';
 import { useLanguage } from '@/lib/hooks/useLanguage';
 import { getStatusBadgeClass, getStatusColor, getStatusIcon } from '@/lib/utils/server-status';
 import { useServersStore } from '@/lib/store/servers-store';
-import { getTemplatesByEdition, ServerTemplate } from '@/lib/server-templates';
+import { getTemplatesByEdition, ServerTemplate, serverTemplates } from '@/lib/server-templates';
 import { ServerEdition } from '@/lib/types/types';
+import { applyForge119Defaults, FORGE_119_PROFILE } from '@/lib/forge-defaults';
 import { TranslationKey } from '@/lib/translations';
 import { getCurrentUser } from '@/services/users/users.service';
 
@@ -85,8 +86,8 @@ export default function Dashboard() {
   const [cloneNewId, setCloneNewId] = useState('');
   const [isCloning, setIsCloning] = useState(false);
   const [createMode, setCreateMode] = useState<'quick' | 'template'>('quick');
-  const [selectedTemplate, setSelectedTemplate] = useState<ServerTemplate | null>(null);
-  const [selectedEdition, setSelectedEdition] = useState<ServerEdition>('JAVA');
+  const [selectedTemplate, setSelectedTemplate] = useState<ServerTemplate | null>(serverTemplates[0] ?? null);
+  const [selectedEdition] = useState<ServerEdition>('JAVA');
   const [canCreateServers, setCanCreateServers] = useState(false);
   const availableTemplates = getTemplatesByEdition(selectedEdition);
 
@@ -237,15 +238,12 @@ export default function Dashboard() {
   const handleCreateServer = async (values: { id: string }) => {
     setIsCreatingServer(true);
     try {
-      const baseConfig = {
+      const baseConfig = applyForge119Defaults({
         id: values.id,
-        edition: selectedEdition,
-        port: selectedEdition === 'BEDROCK' ? '19132' : '25565',
-        enableRcon: selectedEdition !== 'BEDROCK',
-        minecraftVersion: selectedEdition === 'BEDROCK' ? 'LATEST' : 'latest',
-      };
+        port: '25565',
+      });
       const serverData = selectedTemplate
-        ? { ...baseConfig, ...selectedTemplate.config }
+        ? applyForge119Defaults({ ...baseConfig, ...selectedTemplate.config, id: values.id })
         : baseConfig;
       const response = await createServer(serverData);
       if (response.success) {
@@ -311,9 +309,8 @@ export default function Dashboard() {
             onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) {
-                setSelectedTemplate(null);
+                setSelectedTemplate(serverTemplates[0] ?? null);
                 setCreateMode('quick');
-                setSelectedEdition('JAVA');
               }
             }}
           >
@@ -428,53 +425,8 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-400">{t('quickCreateDesc')}</p>
                   )}
 
-                  {/* Edition Selector */}
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-200">{t('serverEdition')}</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedEdition('JAVA');
-                          setSelectedTemplate(null);
-                        }}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                          selectedEdition === 'JAVA'
-                            ? 'border-emerald-500 bg-emerald-900/30'
-                            : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-                        }`}
-                      >
-                        <Coffee className="h-5 w-5 text-orange-400" />
-                        <div className="text-left">
-                          <span className="text-sm font-minecraft text-white">Java Edition</span>
-                          <p className="text-xs text-gray-400">{t('javaEditionDesc')}</p>
-                        </div>
-                        {selectedEdition === 'JAVA' && (
-                          <Check className="h-4 w-4 text-emerald-400 ml-auto" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedEdition('BEDROCK');
-                          setSelectedTemplate(null);
-                        }}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                          selectedEdition === 'BEDROCK'
-                            ? 'border-emerald-500 bg-emerald-900/30'
-                            : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-                        }`}
-                      >
-                        <Smartphone className="h-5 w-5 text-green-400" />
-                        <div className="text-left">
-                          <span className="text-sm font-minecraft text-white">Bedrock</span>
-                          <p className="text-xs text-gray-400">{t('bedrockEditionDesc')}</p>
-                        </div>
-                        {selectedEdition === 'BEDROCK' && (
-                          <Check className="h-4 w-4 text-emerald-400 ml-auto" />
-                        )}
-                      </button>
-                    </div>
+                  <div className="rounded-lg border border-emerald-600/40 bg-emerald-900/20 p-3 text-sm text-emerald-200">
+                    Servidor exclusivo: Minecraft Forge {FORGE_119_PROFILE.minecraftVersion} optimizado
                   </div>
 
                   <FormField

@@ -1,6 +1,7 @@
 // theme-without-fonts: skips VitePress's bundled Inter (we load Archivo/JetBrains Mono)
 import { defineAsyncComponent, h } from 'vue';
 import DefaultTheme from 'vitepress/theme-without-fonts';
+import type { EnhanceAppContext } from 'vitepress';
 import CounterButton from './components/CounterButton.vue';
 import GitHubStars from './components/GitHubStars.vue';
 import TerminalInstall from './components/TerminalInstall.vue';
@@ -18,7 +19,7 @@ export default {
       'nav-bar-content-after': () => h(GitHubStars),
     });
   },
-  enhanceApp(ctx) {
+  enhanceApp(ctx: EnhanceAppContext) {
     const { app } = ctx;
     app.component('CounterButton', CounterButton);
     app.component('TerminalInstall', TerminalInstall);

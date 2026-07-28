@@ -9,12 +9,12 @@ import {
 import { mcToast } from '@/lib/utils/minecraft-toast';
 import { useLanguage } from '@/lib/hooks/useLanguage';
 
-const defaultConfig: ServerConfig = {
+import { applyForge119Defaults, FORGE_119_PROFILE } from '@/lib/forge-defaults';
+
+const defaultConfig: ServerConfig = applyForge119Defaults({
   id: 'Server',
   active: false,
-  serverType: 'VANILLA',
-  serverName: 'Minecraft Server',
-  motd: 'A Minecraft server',
+  serverName: 'Forge 1.19 Server',
   port: '25565',
   difficulty: 'hard',
   maxPlayers: '10',
@@ -61,7 +61,6 @@ const defaultConfig: ServerConfig = {
   simulationDistance: '4',
   uid: '1000',
   gid: '1000',
-  useAikarFlags: false,
   enableJmx: false,
   jmxHost: '',
   jvmOpts: '',
@@ -94,8 +93,9 @@ const defaultConfig: ServerConfig = {
   tarCompressMethod: 'gzip',
   enableSaveAll: true,
   enableSync: true,
-  dockerImage: 'latest',
-  minecraftVersion: 'latest',
+  dockerImage: FORGE_119_PROFILE.dockerImage,
+  minecraftVersion: FORGE_119_PROFILE.minecraftVersion,
+  forgeBuild: FORGE_119_PROFILE.forgeBuild,
   restartPolicy: 'unless-stopped',
   stopDelay: '60',
   execDirectly: true,
@@ -138,7 +138,7 @@ const defaultConfig: ServerConfig = {
   foliaChannel: '',
   foliaDownloadUrl: '',
   skipDownloadDefaults: false,
-};
+});
 
 function normalizeAutoStopRestartPolicy(config: ServerConfig): ServerConfig {
   if (!config.enableAutoStop) {
@@ -179,10 +179,10 @@ export function useServerConfig(serverId: string) {
           }
         }
 
-        setConfig(normalizeAutoStopRestartPolicy({
+        setConfig(normalizeAutoStopRestartPolicy(applyForge119Defaults({
           ...defaultConfig,
           ...serverConfig,
-        }));
+        })));
       } catch (error) {
         console.error('Error loading server config:', error);
         mcToast.error(t('loadConfigError'));

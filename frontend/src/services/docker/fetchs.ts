@@ -166,8 +166,16 @@ export interface ResticSnapshot {
 }
 
 export const getBackupSnapshots = async (serverId: string): Promise<{ success: boolean; snapshots: ResticSnapshot[]; error?: string }> => {
-  const response = await api.get(`/servers/${serverId}/backups/snapshots`);
-  return response.data;
+  try {
+    const response = await api.get(`/servers/${serverId}/backups/snapshots`);
+    return response.data;
+  } catch (error) {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    if (status === 400) {
+      return { success: false, snapshots: [], error: 'Snapshots unavailable for this backup method' };
+    }
+    throw error;
+  }
 };
 
 export const deleteServer = async (serverId: string): Promise<{ success: boolean; message: string }> => {
@@ -175,9 +183,17 @@ export const deleteServer = async (serverId: string): Promise<{ success: boolean
   return response.data;
 };
 
-export const getResources = async (serverId: string): Promise<{ cpuUsage: string; memoryUsage: string; memoryLimit: string }> => {
-  const response = await api.get(`/servers/${serverId}/resources`);
-  return response.data;
+export const getResources = async (serverId: string): Promise<{ cpuUsage: string; memoryUsage: string; memoryLimit: string; status?: string }> => {
+  try {
+    const response = await api.get(`/servers/${serverId}/resources`);
+    return response.data;
+  } catch (error) {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    if (status === 404 || status === 503) {
+      return { cpuUsage: 'N/A', memoryUsage: 'N/A', memoryLimit: 'N/A', status: 'not_found' };
+    }
+    throw error;
+  }
 };
 
 export type ServerResourceInfo = {

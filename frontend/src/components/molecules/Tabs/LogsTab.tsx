@@ -100,7 +100,10 @@ export function LogsTab({ serverId, rconPort, rconPassword, serverStatus }: Read
       const resourceData = await getResources(serverId);
       setResources(resourceData);
     } catch (error) {
-      console.error("Error fetching server resources:", error);
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status !== 404 && status !== 503) {
+        console.error("Error fetching server resources:", error);
+      }
       setResourcesError(t("errorFetchingResources"));
       setResources({
         cpuUsage: "N/A",

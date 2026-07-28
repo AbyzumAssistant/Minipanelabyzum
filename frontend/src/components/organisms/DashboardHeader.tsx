@@ -42,7 +42,7 @@ export function DashboardHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full mc-titlebar bg-[var(--mc-stone)]/95 backdrop-blur-md animate-fade-in">
+    <header className="sticky top-0 z-50 w-full mc-titlebar bg-[var(--mc-stone)]/95 backdrop-blur-md animate-fade-in">
       <div className="flex h-16 items-center justify-end px-6 gap-3">
         <GitHubStarButton label={t("github")} />
 
@@ -72,7 +72,7 @@ export function DashboardHeader() {
 
             {/* Dropdown menu with CSS transitions */}
             <div className={cn(
-              "absolute right-0 mt-2 w-56 z-50 bg-[var(--mc-stone)] border-2 border-[var(--mc-frame)]",
+              "absolute right-0 mt-2 w-56 z-[100] bg-[var(--mc-stone)] border-2 border-[var(--mc-frame)]",
               "shadow-[inset_2px_2px_0_rgba(255,255,255,0.1),inset_-2px_-2px_0_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.55)]",
               "transition-all duration-200 origin-top-right",
               showUserMenu ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"

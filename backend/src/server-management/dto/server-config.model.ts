@@ -438,6 +438,18 @@ export class ServerConfigDto {
 
   @IsString()
   @IsOptional()
+  resourcePackUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  resourcePackSha1?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  requireResourcePack?: boolean;
+
+  @IsString()
+  @IsOptional()
   modrinthModpack?: string;
 
   // GTNH specific

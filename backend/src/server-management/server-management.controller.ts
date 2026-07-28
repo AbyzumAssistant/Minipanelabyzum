@@ -383,7 +383,13 @@ export class ServerManagementController {
 
     const status = await this.managementService.getServerStatus(id);
     if (status === 'not_found') {
-      throw new NotFoundException(`Server with ID "${id}" not found`);
+      return {
+        cpuUsage: 'N/A',
+        memoryUsage: 'N/A',
+        memoryLimit: 'N/A',
+        diskUsage: 'N/A',
+        status,
+      };
     }
 
     if (status !== 'running') {
@@ -580,7 +586,11 @@ export class ServerManagementController {
       throw new NotFoundException(`Server with ID "${id}" not found`);
     }
     if (config.backupMethod !== 'restic') {
-      throw new BadRequestException('Snapshots are only available for the restic backup method');
+      return {
+        success: false,
+        snapshots: [],
+        error: 'Snapshots are only available for the restic backup method',
+      };
     }
     return this.managementService.getBackupSnapshots(id);
   }

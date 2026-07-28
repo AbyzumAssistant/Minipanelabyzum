@@ -12,6 +12,7 @@ const AUTH_ENDPOINTS = [
   "/auth/login",
   "/auth/refresh",
   "/auth/logout",
+  "/auth/me",
   "/auth/setup-admin",
   "/auth/forgot-password",
   "/auth/reset-password",
@@ -255,12 +256,16 @@ export const setupAxiosInterceptors = () => {
 
         if (refreshed) {
           isRefreshing = false;
+          invalidateSessionUserCache();
           onRefreshed();
           return api(originalRequest);
         } else {
           isRefreshing = false;
           onRefreshFailed(error);
-          await logout();
+          invalidateSessionUserCache();
+          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
+            window.location.href = '/';
+          }
           throw error;
         }
       }

@@ -29,8 +29,8 @@ const archivoBlack = Archivo_Black({
 });
 
 export const metadata: Metadata = {
-  title: 'Minepanel',
-  description: 'Minecraft Server Management Panel',
+  title: 'abyzumMC',
+  description: 'abyzumMC - Minecraft Server Management Panel',
   icons: {
     icon: '/favicon.ico',
   },
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { readonly children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${archivoBlack.variable} ${jetbrainsMono.variable}`}>
+    <html lang="es" className={`dark ${archivo.variable} ${archivoBlack.variable} ${jetbrainsMono.variable}`}>
       <head>
         <PublicEnvScript />
       </head>

@@ -20,7 +20,7 @@ export const mcToast = {
   success: (message: string, options?: MinecraftToastOptions) => {
     sonnerToast.custom(
       () => (
-        <div className="bg-gray-900/95 border-2 border-emerald-600/50 rounded-lg p-3 shadow-lg shadow-emerald-900/20 backdrop-blur-sm text-white">
+        <div className="bg-zinc-950/95 border border-sky-500/40 rounded-lg p-3 shadow-lg shadow-sky-950/30 backdrop-blur-sm text-white">
           <ToastContent icon="/images/emerald.webp" title={message} description={options?.description} />
         </div>
       ),

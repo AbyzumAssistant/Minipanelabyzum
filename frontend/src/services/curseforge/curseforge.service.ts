@@ -135,7 +135,6 @@ export const searchModpacks = async (
     });
     return response.data;
   } catch (error) {
-    console.error("Error searching modpacks:", error);
     throw error;
   }
 };
@@ -147,7 +146,6 @@ export const getFeaturedModpacks = async (limit: number = 10): Promise<CurseForg
     });
     return response.data;
   } catch (error) {
-    console.error("Error fetching featured modpacks:", error);
     throw error;
   }
 };
@@ -159,7 +157,6 @@ export const getPopularModpacks = async (limit: number = 10): Promise<CurseForge
     });
     return response.data;
   } catch (error) {
-    console.error("Error fetching popular modpacks:", error);
     throw error;
   }
 };
@@ -169,7 +166,6 @@ export const getModpack = async (id: number): Promise<CurseForgeModpack> => {
     const response = await api.get<CurseForgeModResponse>(`/curseforge/${id}`);
     return response.data.data;
   } catch (error) {
-    console.error("Error fetching modpack:", error);
     throw error;
   }
 };

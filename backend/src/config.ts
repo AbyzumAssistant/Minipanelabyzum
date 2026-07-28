@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { dirname } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import * as os from 'node:os';
 
 // The generated server compose files and the chown helper run against the host Docker
@@ -28,7 +29,9 @@ function detectHostBaseDir(): string | undefined {
   return undefined;
 }
 
-export default () => ({
+export default () => {
+  const baseDir = resolve(detectHostBaseDir() || process.env.BASE_DIR || '/app');
+  return {
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '2d',
   jwtIssuer: process.env.JWT_ISSUER || 'minepanel',
@@ -60,10 +63,13 @@ export default () => ({
     pass: process.env.SMTP_PASS,
     from: process.env.SMTP_FROM,
   },
-  serversDir: '/app/servers',
-  baseDir: detectHostBaseDir() || process.env.BASE_DIR || '/app',
+  serversDir: join(baseDir, 'servers'),
+  baseDir,
   backupBaseDir: process.env.BACKUP_BASE_DIR || undefined,
-  database: {
-    path: '/app/data/minepanel.db',
-  },
-});
+  database: (() => {
+    const path = process.env.DB_PATH || join(process.cwd(), 'data', 'minepanel.db');
+    mkdirSync(dirname(path), { recursive: true });
+    return { path };
+  })(),
+  };
+};

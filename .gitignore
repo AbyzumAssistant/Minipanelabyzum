@@ -1,6 +1,7 @@
 .env
 filebrowser-data/*
 data/*
+backend/data/
 node_modules/
 package-lock.json
 skills-lock.json

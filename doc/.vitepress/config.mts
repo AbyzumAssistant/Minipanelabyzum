@@ -7,8 +7,8 @@ const hostname = 'https://minepanel.ketbome.com';
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   lang: 'en-US',
-  title: 'Minepanel',
-  // Frontmatter titles already include the brand; avoid "… | Minepanel" duplication
+  title: 'abyzumMC',
+  // Frontmatter titles already include the brand; avoid "… | abyzumMC" duplication
   titleTemplate: false,
   description:
     'Free open source Minecraft server management panel for Java and Bedrock Edition. Self-hosted Docker-based alternative to Pterodactyl and Aternos. Manage Paper, Forge, Fabric, Spigot, Purpur, and Bedrock servers from one web UI.',

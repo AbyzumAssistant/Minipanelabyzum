@@ -55,11 +55,19 @@ export class InstanceSettingsService {
 
   private async getRow(): Promise<InstanceSettings> {
     let row = await this.repo.findOne({ where: { id: 1 } });
-    if (!row) {
-      row = this.repo.create({ id: 1 });
-      row = await this.repo.save(row);
+    if (row) {
+      return row;
     }
-    return row;
+
+    try {
+      return await this.repo.save(this.repo.create({ id: 1 }));
+    } catch {
+      row = await this.repo.findOne({ where: { id: 1 } });
+      if (!row) {
+        throw new Error('Failed to initialize instance settings');
+      }
+      return row;
+    }
   }
 
   async getSmtp(): Promise<ResolvedSmtp> {

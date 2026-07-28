@@ -108,7 +108,10 @@ export function ServerQuickView({ servers }: ServerQuickViewProps) {
 
       setServersData(data);
     } catch (error) {
-      console.error("Error fetching server resources:", error);
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status !== 404 && status !== 503) {
+        console.error("Error fetching server resources:", error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +140,7 @@ export function ServerQuickView({ servers }: ServerQuickViewProps) {
   const getUsageColor = (percent: number) => {
     if (percent >= 90) return "#f05a5a";
     if (percent >= 70) return "#f5c542";
-    return "#9dff3f";
+    return "#38bdf8";
   };
 
   const hasHighUsage = (server: ServerWithResources) => server.status === "running" && (server.cpuPercent >= 80 || server.memoryPercent >= 80);

@@ -8,9 +8,14 @@ async function bootstrap() {
     throw new Error('JWT_SECRET is not set. Generate one with: openssl rand -base64 32');
   }
 
+  const frontendOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((url) => url.trim())
+    .filter(Boolean);
+
   const app = await NestFactory.create(AppModule, {
     cors: {
-      origin: [process.env.FRONTEND_URL],
+      origin: frontendOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
       allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],

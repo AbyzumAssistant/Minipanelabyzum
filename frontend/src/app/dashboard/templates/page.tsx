@@ -46,15 +46,24 @@ export default function TemplatesPage() {
         totalCount: popularResponse.pagination.totalCount,
       });
     } catch (err) {
-      console.error("Error loading modpacks:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+      const msg = axiosErr.response?.data?.message || '';
+      const isMissingKey =
+        axiosErr.response?.status === 400 &&
+        (msg.includes('API key') || msg.includes('api key'));
 
-      if (errorMessage.includes("API key") || errorMessage.includes("403")) {
+      if (!isMissingKey) {
+        console.error("Error loading modpacks:", err);
+      }
+
+      if (isMissingKey || msg.includes('403')) {
         setError(t("curseforgeApiKeyNotConfigured"));
       } else {
         setError(t("errorLoadingModpacks"));
       }
-      mcToast.error(t("errorLoadingModpacks"));
+      if (!isMissingKey) {
+        mcToast.error(t("errorLoadingModpacks"));
+      }
     } finally {
       setIsLoading(false);
     }

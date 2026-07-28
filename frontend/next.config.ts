@@ -2,10 +2,21 @@ import type { NextConfig } from 'next';
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
+const backendProxyUrl = process.env.BACKEND_PROXY_URL || 'http://127.0.0.1:8091';
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   ...(basePath && { basePath }),
+
+  async rewrites() {
+    return [
+      {
+        source: '/api/backend/:path*',
+        destination: `${backendProxyUrl}/:path*`,
+      },
+    ];
+  },
 
   // Turbopack is the default bundler in Next.js 16. Pin the workspace root so
   // the multi-lockfile warning is silenced and builds are deterministic.
@@ -29,7 +40,6 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-icons',
-      'framer-motion',
       '@radix-ui/react-dialog',
       '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-tabs',

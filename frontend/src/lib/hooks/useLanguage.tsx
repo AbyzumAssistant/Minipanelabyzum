@@ -26,7 +26,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   if (envLang && !isValidLang) {
     console.warn(
-      `[Minepanel] Language "${envLang}" is not available. Available: ${Object.keys(translations).join(', ')}. Falling back to "en".`,
+      `[abyzumMC] Language "${envLang}" is not available. Available: ${Object.keys(translations).join(', ')}. Falling back to "en".`,
     );
   }
 

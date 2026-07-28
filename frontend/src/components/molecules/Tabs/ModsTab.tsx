@@ -18,6 +18,7 @@ import { LINK_MODS_PLUGINS } from "@/lib/providers/constants";
 import { mcToast } from "@/lib/utils/minecraft-toast";
 import { CurseForgeModpack } from "@/services/curseforge/curseforge.service";
 import { ModsBrowserDialog } from "@/components/molecules/mods/ModsBrowserDialog";
+import { Forge119ModsCatalog } from "@/components/molecules/Tabs/Forge119ModsCatalog";
 import { ModLoader, ModProvider, ModSearchItem } from "@/services/mods/mods-browser.service";
 
 const ModpackBrowser = dynamic(() => import("@/components/molecules/modpacks/ModpackBrowser").then(mod => mod.ModpackBrowser), {
@@ -25,11 +26,12 @@ const ModpackBrowser = dynamic(() => import("@/components/molecules/modpacks/Mod
 });
 
 interface ModsTabProps {
+  serverId: string;
   config: ServerConfig;
   updateConfig: <K extends keyof ServerConfig>(field: K, value: ServerConfig[K]) => void;
 }
 
-export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
+export const ModsTab: FC<ModsTabProps> = ({ serverId, config, updateConfig }) => {
   const { t } = useLanguage();
   const [showApiKeyManual, setShowApiKeyManual] = useState(false);
   const [showApiKeyAuto, setShowApiKeyAuto] = useState(false);
@@ -173,99 +175,104 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
   }
 
   return (
-    <Card className="bg-gray-900/60 border-gray-700/50 shadow-lg">
-      <CardHeader className="pb-3">
+    <Card className="overflow-hidden border-zinc-800 bg-zinc-950 shadow-none">
+      <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 pb-4">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-xl text-emerald-400 font-minecraft flex items-center gap-2">
-              <Image src="/images/gold.webp" alt="Mods" width={24} height={24} className="opacity-90" />
+            <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-600">
+                <Image src="/images/gold.webp" alt="Mods" width={18} height={18} className="opacity-95" />
+              </div>
               {t("modsConfig")}
             </CardTitle>
-            <CardDescription className="text-gray-300">{t("modsConfigDesc")}</CardDescription>
+            <CardDescription className="text-zinc-400">{t("modsConfigDesc")}</CardDescription>
           </div>
-          <a href={LINK_MODS_PLUGINS} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
+          <a href={LINK_MODS_PLUGINS} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-sky-400 hover:text-sky-300 transition-colors">
             <BookOpen className="h-4 w-4" />
             Docs
           </a>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 pt-5">
+        {isForge && (
+          <Forge119ModsCatalog serverId={serverId} config={config} updateConfig={updateConfig} />
+        )}
         {isForge && (
           <>
-            <div className="space-y-2 p-4 rounded-md bg-gray-800/50 border border-gray-700/50">
-              <Label htmlFor="forgeBuild" className="text-gray-200 font-minecraft text-sm flex items-center gap-2">
+            <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+              <Label htmlFor="forgeBuild" className="text-sm font-medium text-white flex items-center gap-2">
                 <Image src="/images/anvil.webp" alt="Forge" width={16} height={16} />
                 {t("forgeVersion")}
               </Label>
-              <Input id="forgeBuild" value={config.forgeBuild} onChange={(e) => updateConfig("forgeBuild", e.target.value)} placeholder="43.2.0" className="bg-gray-800/70 text-gray-200 border-gray-700/50 focus:border-emerald-500/50 focus:ring-emerald-500/30" />
-              <p className="text-xs text-gray-400">{t("forgeBuildDesc")}</p>
+              <Input id="forgeBuild" value={config.forgeBuild} onChange={(e) => updateConfig("forgeBuild", e.target.value)} placeholder="43.2.0" className="bg-zinc-950 text-white border-zinc-700 focus-visible:ring-sky-500" />
+              <p className="text-xs text-zinc-500">{t("forgeBuildDesc")}</p>
             </div>
 
-            <div className="space-y-2 p-4 rounded-md bg-gray-800/50 border border-gray-700/50">
+            <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-1">
                   <Image src="/images/diamond.webp" alt="API Key" width={16} height={16} />
-                  <Label htmlFor="cfApiKeyForge" className="text-gray-200 font-minecraft text-sm">
+                  <Label htmlFor="cfApiKeyForge" className="text-sm font-medium text-white">
                     {t("cfApiKey")}
                   </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0 bg-transparent hover:bg-gray-700/50">
-                          <HelpCircle className="h-4 w-4 text-gray-400" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0 bg-transparent hover:bg-zinc-800">
+                          <HelpCircle className="h-4 w-4 text-zinc-500" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent className="bg-gray-800 border-gray-700 text-gray-200">
+                      <TooltipContent className="bg-zinc-900 border-zinc-700 text-zinc-200">
                         <p>{t("cfApiKeyHelp")}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={handleImportApiKey} disabled={isImporting} className="bg-gray-800/70 border-gray-700/50 text-gray-300 hover:bg-gray-700/50 hover:text-emerald-400 text-xs">
+                <Button type="button" variant="outline" size="sm" onClick={handleImportApiKey} disabled={isImporting} className="border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs">
                   <Download className="h-3 w-3 mr-1" />
                   {t("importFromSettings")}
                 </Button>
               </div>
               <div className="relative">
-                <Input id="cfApiKeyForge" value={config.cfApiKey || ""} onChange={(e) => updateConfig("cfApiKey", e.target.value)} placeholder="$2a$10$Iao..." type={showApiKeyAuto ? "text" : "password"} className="bg-gray-800/70 text-gray-200 border-gray-700/50 focus:border-emerald-500/50 focus:ring-emerald-500/30 pr-10" />
+                <Input id="cfApiKeyForge" value={config.cfApiKey || ""} onChange={(e) => updateConfig("cfApiKey", e.target.value)} placeholder="$2a$10$Iao..." type={showApiKeyAuto ? "text" : "password"} className="bg-zinc-950 text-white border-zinc-700 focus-visible:ring-sky-500 pr-10" />
                 <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowApiKeyAuto(!showApiKeyAuto)}>
-                  {showApiKeyAuto ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
+                  {showApiKeyAuto ? <EyeOff className="h-4 w-4 text-zinc-500" /> : <Eye className="h-4 w-4 text-zinc-500" />}
                 </Button>
               </div>
-              <p className="text-xs text-gray-400">{t("cfApiKeyOptional")}</p>
+              <p className="text-xs text-zinc-500">{t("cfApiKeyOptional")}</p>
             </div>
 
-            <div className="space-y-2 p-4 rounded-md bg-emerald-900/10 border-2 border-emerald-500/30">
+            <div className="space-y-2 rounded-lg border border-sky-600/30 bg-sky-950/20 p-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="cfFilesForge" className="text-emerald-400 font-minecraft text-sm flex items-center gap-2">
+                <Label htmlFor="cfFilesForge" className="text-sm font-medium text-white flex items-center gap-2">
                   <Image src="/images/ender_chest.webp" alt="CurseForge" width={16} height={16} />
                   {t("curseforgeFiles")}
                 </Label>
                 <div className="flex items-center gap-2">
-                  <a href="https://www.curseforge.com/minecraft/search?page=1&pageSize=20&sortBy=relevancy&class=mc-mods" target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 underline">
+                  <a href="https://www.curseforge.com/minecraft/search?page=1&pageSize=20&sortBy=relevancy&class=mc-mods" target="_blank" rel="noopener noreferrer" className="text-xs text-sky-400 hover:text-sky-300 underline">
                     {t("browseMods")}
                   </a>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 border-sky-600/50 bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 hover:text-white">
                     <Search className="h-3 w-3 mr-1" />
                     {t("searchMods")}
                   </Button>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0 bg-transparent hover:bg-emerald-700/30">
-                          <HelpCircle className="h-4 w-4 text-emerald-400" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0 bg-transparent hover:bg-zinc-800">
+                          <HelpCircle className="h-4 w-4 text-sky-400" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent className="max-w-sm bg-gray-800 border-gray-700 text-gray-200">
+                      <TooltipContent className="max-w-sm bg-zinc-900 border-zinc-700 text-zinc-200">
                         <p>{t("curseforgeFilesHelp")}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
               </div>
-              <Textarea id="cfFilesForge" value={config.cfFiles || ""} onChange={(e) => updateConfig("cfFiles", e.target.value)} placeholder="jei, geckolib, aquaculture" className="min-h-20 bg-gray-800/70 border-gray-700/50 text-gray-200 focus:border-emerald-500/50 focus:ring-emerald-500/30" />
-              <p className="text-xs text-gray-400">{t("curseforgeFilesDesc")}</p>
+              <Textarea id="cfFilesForge" value={config.cfFiles || ""} onChange={(e) => updateConfig("cfFiles", e.target.value)} placeholder="jei, geckolib, aquaculture" className="min-h-20 bg-zinc-950 border-zinc-700 text-white focus-visible:ring-sky-500" />
+              <p className="text-xs text-zinc-500">{t("curseforgeFilesDesc")}</p>
             </div>
           </>
         )}
@@ -325,7 +332,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   <a href="https://www.curseforge.com/minecraft/search?page=1&pageSize=20&sortBy=relevancy&class=mc-mods" target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 underline">
                     {t("browseMods")}
                   </a>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(56,189,248,0.25)]">
                     <Search className="h-3 w-3 mr-1" />
                     {t("searchMods")}
                   </Button>
@@ -413,7 +420,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   <a href="https://www.curseforge.com/minecraft/search?page=1&pageSize=20&sortBy=relevancy&class=mc-mods" target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 underline">
                     {t("browseMods")}
                   </a>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(56,189,248,0.25)]">
                     <Search className="h-3 w-3 mr-1" />
                     {t("searchMods")}
                   </Button>
@@ -598,7 +605,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
               </div>
             </div>
 
-            <div className="p-4 rounded-md bg-linear-to-r from-emerald-900/20 to-blue-900/20 border border-emerald-600/30">
+            <div className="p-4 rounded-md bg-linear-to-r from-emerald-900/20 to-sky-900/20 border border-emerald-600/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-minecraft text-sm text-emerald-400">{t("browseModpacks")}</p>
@@ -755,7 +762,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   <a href="https://www.curseforge.com/minecraft/search?page=1&pageSize=20&sortBy=relevancy&class=mc-mods" target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 underline">
                     {t("browseMods")}
                   </a>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(56,189,248,0.25)]">
                     <Search className="h-3 w-3 mr-1" />
                     {t("searchMods")}
                   </Button>
@@ -854,7 +861,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   <a href="https://www.curseforge.com/minecraft/search?page=1&pageSize=20&sortBy=relevancy&class=mc-mods" target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-400 hover:text-emerald-300 underline">
                     {t("browseMods")}
                   </a>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("curseforge", "cfFiles")} className="h-8 text-xs px-3 font-minecraft border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-500/30 hover:text-emerald-200 shadow-[0_0_0_1px_rgba(56,189,248,0.25)]">
                     <Search className="h-3 w-3 mr-1" />
                     {t("searchMods")}
                   </Button>
@@ -981,25 +988,25 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
 
         {(isForge || isNeoforge || isFabric || isCurseForge || isModrinth) && (
           <>
-            <div className="space-y-2 p-4 rounded-md bg-blue-900/10 border-2 border-blue-500/30">
+            <div className="space-y-2 p-4 rounded-md bg-sky-900/10 border-2 border-sky-500/30">
               <div className="flex items-center justify-between">
-                <Label htmlFor="modrinthProjects" className="text-blue-400 font-minecraft text-sm flex items-center gap-2">
+                <Label htmlFor="modrinthProjects" className="text-sky-400 font-minecraft text-sm flex items-center gap-2">
                   <Image src="/images/enchanted-book.webp" alt="Modrinth" width={16} height={16} />
                   {t("modrinthProjects")}
                 </Label>
                 <div className="flex items-center gap-2">
-                  <a href="https://modrinth.com/mods" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 underline">
+                  <a href="https://modrinth.com/mods" target="_blank" rel="noopener noreferrer" className="text-xs text-sky-400 hover:text-sky-300 underline">
                     {t("browseMods")}
                   </a>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("modrinth", "modrinthProjects")} className="h-8 text-xs px-3 font-minecraft border-blue-500/50 bg-blue-600/20 text-blue-300 hover:bg-blue-500/30 hover:text-blue-200 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]">
+                  <Button type="button" variant="outline" size="sm" onClick={() => openModsBrowser("modrinth", "modrinthProjects")} className="h-8 text-xs px-3 font-minecraft border-sky-500/50 bg-sky-600/20 text-sky-300 hover:bg-sky-500/30 hover:text-sky-200 shadow-[0_0_0_1px_rgba(59,130,246,0.25)]">
                     <Search className="h-3 w-3 mr-1" />
                     {t("searchMods")}
                   </Button>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0 bg-transparent hover:bg-blue-700/30">
-                          <HelpCircle className="h-4 w-4 text-blue-400" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6 p-0 bg-transparent hover:bg-sky-700/30">
+                          <HelpCircle className="h-4 w-4 text-sky-400" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-sm bg-gray-800 border-gray-700 text-gray-200">
@@ -1009,7 +1016,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   </TooltipProvider>
                 </div>
               </div>
-              <Textarea id="modrinthProjects" value={config.modrinthProjects || ""} onChange={(e) => updateConfig("modrinthProjects", e.target.value)} placeholder="fabric-api, cloth-config, datapack:terralith" className="min-h-20 bg-gray-800/70 border-gray-700/50 text-gray-200 focus:border-blue-500/50 focus:ring-blue-500/30" />
+              <Textarea id="modrinthProjects" value={config.modrinthProjects || ""} onChange={(e) => updateConfig("modrinthProjects", e.target.value)} placeholder="fabric-api, cloth-config, datapack:terralith" className="min-h-20 bg-gray-800/70 border-gray-700/50 text-gray-200 focus:border-sky-500/50 focus:ring-sky-500/30" />
               <p className="text-xs text-gray-400">{t("modrinthProjectsDesc")}</p>
             </div>
 
@@ -1034,7 +1041,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   </TooltipProvider>
                 </div>
                 <Select value={config.modrinthDownloadDependencies || "none"} onValueChange={(value: "none" | "required" | "optional") => updateConfig("modrinthDownloadDependencies", value)}>
-                  <SelectTrigger className="bg-gray-800/70 text-gray-200 border-gray-700/50 focus:ring-blue-500/30">
+                  <SelectTrigger className="bg-gray-800/70 text-gray-200 border-gray-700/50 focus:ring-sky-500/30">
                     <SelectValue placeholder="none" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700 text-gray-200">
@@ -1065,7 +1072,7 @@ export const ModsTab: FC<ModsTabProps> = ({ config, updateConfig }) => {
                   </TooltipProvider>
                 </div>
                 <Select value={config.modrinthDefaultVersionType || "release"} onValueChange={(value: "release" | "beta" | "alpha") => updateConfig("modrinthDefaultVersionType", value)}>
-                  <SelectTrigger className="bg-gray-800/70 text-gray-200 border-gray-700/50 focus:ring-blue-500/30">
+                  <SelectTrigger className="bg-gray-800/70 text-gray-200 border-gray-700/50 focus:ring-sky-500/30">
                     <SelectValue placeholder="release" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700 text-gray-200">

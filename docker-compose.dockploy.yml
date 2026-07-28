@@ -1,0 +1,55 @@
+# Compose para Dockploy — construye desde el código local (fork MCABYZUM).
+# En Dockploy: Compose file = docker-compose.dockploy.yml
+# Env file = .env (copia de .env.dockploy.example)
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '${BACKEND_PORT:-8091}:8091'
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - NODE_ENV=production
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-2d}
+      - ALLOW_INSECURE_AUTH_COOKIES=${ALLOW_INSECURE_AUTH_COOKIES:-false}
+      - BASE_DIR=/app
+      - COMPOSE_PROJECT=${COMPOSE_PROJECT:-mcabyzum}
+      - BASE_PATH=${BASE_PATH:-}
+    volumes:
+      - ${BASE_DIR:-./data}/servers:/app/servers
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BASE_DIR:-./data}/data:/app/data
+    networks:
+      - minepanel-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
+        BACKEND_PROXY_URL: ${BACKEND_PROXY_URL:-http://backend:8091}
+    ports:
+      - '${FRONTEND_PORT:-3000}:3000'
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-/api/backend}
+      - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-}
+      - NEXT_PUBLIC_DEFAULT_LANGUAGE=${NEXT_PUBLIC_DEFAULT_LANGUAGE:-es}
+    depends_on:
+      - backend
+    networks:
+      - minepanel-network
+    restart: unless-stopped
+
+networks:
+  minepanel-network:
+    name: minepanel-network
+    driver: bridge

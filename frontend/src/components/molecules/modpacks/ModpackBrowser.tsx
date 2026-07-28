@@ -31,7 +31,10 @@ export function ModpackBrowser({ open, onClose, onSelect }: ModpackBrowserProps)
       setModpacks(response.data);
       setHasSearched(true);
     } catch (err) {
-      console.error("Error loading modpacks:", err);
+      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+      if (axiosErr.response?.status !== 400) {
+        console.error("Error loading modpacks:", err);
+      }
     } finally {
       setIsLoading(false);
     }

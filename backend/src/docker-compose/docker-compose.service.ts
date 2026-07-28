@@ -474,6 +474,7 @@ export class DockerComposeService {
 
     // Parse Modrinth config for compatible server types
     this.parseModrinthConfig(serverConfig, env);
+    this.parseResourcePackConfig(serverConfig, env);
 
     // Parse CurseForge files config for mod-compatible server types
     this.parseCurseForgeFilesConfig(serverConfig, env);
@@ -502,6 +503,12 @@ export class DockerComposeService {
     serverConfig.modrinthDefaultVersionType = env.MODRINTH_PROJECTS_DEFAULT_VERSION_TYPE ?? 'release';
     serverConfig.modrinthLoader = env.MODRINTH_LOADER ?? '';
     serverConfig.modrinthModpack = env.MODRINTH_MODPACK ?? '';
+  }
+
+  private parseResourcePackConfig(serverConfig: ServerConfig, env: any): void {
+    serverConfig.resourcePackUrl = env.RESOURCE_PACK ?? '';
+    serverConfig.resourcePackSha1 = env.RESOURCE_PACK_SHA1 ?? '';
+    serverConfig.requireResourcePack = env.REQUIRE_RESOURCE_PACK === 'true';
   }
 
   private parsePluginServerConfig(serverConfig: ServerConfig, env: any): void {
@@ -970,6 +977,9 @@ export class DockerComposeService {
   private addConnectivityOptions(env: Record<string, string>, config: ServerConfig): void {
     if (config.preventProxyConnections) env['PREVENT_PROXY_CONNECTIONS'] = 'true';
     if (config.opPermissionLevel) env['OP_PERMISSION_LEVEL'] = config.opPermissionLevel;
+    if (config.resourcePackUrl) env['RESOURCE_PACK'] = config.resourcePackUrl;
+    if (config.resourcePackSha1) env['RESOURCE_PACK_SHA1'] = config.resourcePackSha1;
+    if (config.requireResourcePack) env['REQUIRE_RESOURCE_PACK'] = 'true';
   }
 
   private addServerTypeConfig(env: Record<string, string>, config: ServerConfig): void {

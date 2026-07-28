@@ -46,7 +46,7 @@ export function GitHubStarButton({ label }: GitHubStarButtonProps) {
       rel="noopener noreferrer"
       aria-label={formattedStars ? `${label}: ${formattedStars}` : label}
       title={label}
-      className="mc-slot group relative flex h-11 w-18 shrink-0 items-center justify-center gap-2 px-2 transition-[outline,box-shadow,filter] hover:outline-3 hover:outline-offset-[-1px] hover:outline-[var(--mc-emerald)] hover:brightness-110 hover:shadow-[inset_3px_3px_0_rgba(0,0,0,0.55),inset_-3px_-3px_0_rgba(255,255,255,0.06),0_0_16px_rgba(157,255,63,0.55)] focus-visible:outline-3 focus-visible:outline-[var(--mc-emerald)] sm:w-22"
+      className="mc-slot group relative flex h-11 w-18 shrink-0 items-center justify-center gap-2 px-2 transition-[outline,box-shadow,filter] hover:outline-3 hover:outline-offset-[-1px] hover:outline-[var(--mc-emerald)] hover:brightness-110 hover:shadow-[inset_3px_3px_0_rgba(0,0,0,0.55),inset_-3px_-3px_0_rgba(255,255,255,0.06),0_0_16px_rgba(56,189,248,0.55)] focus-visible:outline-3 focus-visible:outline-[var(--mc-emerald)] sm:w-22"
     >
       <Github
         className="h-4 w-4 shrink-0 text-gray-400 transition-colors group-hover:text-emerald-300"
