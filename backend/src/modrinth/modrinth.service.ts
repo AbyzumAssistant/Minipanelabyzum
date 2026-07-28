@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestj
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import * as archiver from 'archiver';
-import AdmZip from 'adm-zip';
+import * as AdmZip from 'adm-zip';
 import * as fs from 'fs/promises';
 import { createReadStream, createWriteStream } from 'fs';
 import * as path from 'path';
