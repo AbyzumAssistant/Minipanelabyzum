@@ -11,6 +11,7 @@ import { Loader2, Hammer, Download, ExternalLink, Copy, Globe, Package } from 'l
 import { useLanguage } from '@/lib/hooks/useLanguage';
 import { mcToast } from '@/lib/utils/minecraft-toast';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
+import { getPublicEnv } from '@/lib/public-env';
 import {
   buildLauncherPack,
   downloadLauncherPack,
@@ -35,10 +36,8 @@ export const LandingTab: FC<LandingTabProps> = ({ serverId, config }) => {
   const [building, setBuilding] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const landingUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/landing/?server=${encodeURIComponent(serverId)}`
-      : `/landing/?server=${serverId}`;
+  const landingBase = getPublicEnv('NEXT_PUBLIC_LANDING_URL').replace(/\/$/, '');
+  const landingUrl = `${landingBase}/landing?server=${encodeURIComponent(serverId)}`;
 
   const serverAddress = `${resolveMcServerHost(config.proxyHostname || undefined)}:${config.port || DEFAULT_MC_SERVER_PORT}`;
 
@@ -172,7 +171,7 @@ export const LandingTab: FC<LandingTabProps> = ({ serverId, config }) => {
               {t('copy')}
             </Button>
             <Button type="button" variant="outline" size="sm" asChild className="border-zinc-700 text-zinc-300">
-              <Link href={`/landing/?server=${encodeURIComponent(serverId)}`} target="_blank">
+              <Link href={landingUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-1" />
                 {t('modDeployPreview')}
               </Link>

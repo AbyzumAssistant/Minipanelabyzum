@@ -2,6 +2,7 @@ const defaultPublicEnv = {
   NEXT_PUBLIC_BACKEND_URL: '/api/backend',
   NEXT_PUBLIC_DEFAULT_LANGUAGE: 'en',
   NEXT_PUBLIC_MC_SERVER_HOST: '',
+  NEXT_PUBLIC_LANDING_URL: 'https://mc.abyzum.com',
 } as const;
 
 export type PublicEnvKey = keyof typeof defaultPublicEnv;
@@ -50,9 +51,14 @@ export function serializePublicEnv() {
 
 function readPublicEnv() {
   const configured = process.env.NEXT_PUBLIC_BACKEND_URL ?? defaultPublicEnv.NEXT_PUBLIC_BACKEND_URL;
+  const landingUrl =
+    process.env.NEXT_PUBLIC_LANDING_URL?.trim() ||
+    process.env.LANDING_URL?.trim() ||
+    defaultPublicEnv.NEXT_PUBLIC_LANDING_URL;
   return {
     NEXT_PUBLIC_BACKEND_URL: configured.startsWith('/') ? configured : resolveBackendUrl(configured),
     NEXT_PUBLIC_DEFAULT_LANGUAGE: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE ?? defaultPublicEnv.NEXT_PUBLIC_DEFAULT_LANGUAGE,
     NEXT_PUBLIC_MC_SERVER_HOST: process.env.NEXT_PUBLIC_MC_SERVER_HOST ?? defaultPublicEnv.NEXT_PUBLIC_MC_SERVER_HOST,
+    NEXT_PUBLIC_LANDING_URL: landingUrl.replace(/\/$/, ''),
   } as const;
 }
