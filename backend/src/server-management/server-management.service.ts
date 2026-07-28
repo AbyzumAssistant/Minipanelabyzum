@@ -838,6 +838,8 @@ export class ServerManagementService {
       }
 
       this.alertsService.markExpectedStop(serverId);
+      const { proxyEnabled } = await this.getUserSettings();
+      await this.dockerComposeService.ensureForgeOfflineConnectivity(serverId, proxyEnabled);
       await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_DOWN);
       await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_UP);
 
@@ -1593,6 +1595,8 @@ export class ServerManagementService {
       }
 
       const { port, changed } = await this.dockerComposeService.reconcileServerPortBeforeStart(serverId);
+      const { proxyEnabled } = await this.getUserSettings();
+      await this.dockerComposeService.ensureForgeOfflineConnectivity(serverId, proxyEnabled);
 
       await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_UP);
 

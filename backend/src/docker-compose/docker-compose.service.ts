@@ -939,8 +939,28 @@ export class DockerComposeService {
     }
 
     await this.generateDockerComposeFile(updatedConfig, proxyEnabled);
-    await this.syncOnlineModeInServerProperties(id, updatedConfig.onlineMode !== false);
+    await this.syncOfflineServerProperties(id);
     return updatedConfig;
+  }
+
+  private applyForgeOfflineEnv(environment: Record<string, string>, config: ServerConfig): void {
+    if (config.serverType !== 'FORGE' && config.modrinthLoader !== 'forge') {
+      return;
+    }
+    environment.ONLINE_MODE = 'false';
+    environment.OVERRIDE_SERVER_PROPERTIES = 'true';
+    environment.ENFORCE_SECURE_PROFILE = 'false';
+  }
+
+  async ensureForgeOfflineConnectivity(serverId: string, proxyEnabled = false): Promise<void> {
+    const config = await this.loadServerConfigFromDockerCompose(serverId);
+    if (config.serverType !== 'FORGE' && config.modrinthLoader !== 'forge') {
+      return;
+    }
+
+    const normalized = this.applyForgeConnectivityDefaults(config);
+    await this.syncOfflineServerProperties(serverId);
+    await this.generateDockerComposeFile(normalized, proxyEnabled);
   }
 
   private applyForgeConnectivityDefaults(config: ServerConfig): ServerConfig {
@@ -950,9 +970,14 @@ export class DockerComposeService {
     return config;
   }
 
-  private async syncOnlineModeInServerProperties(serverId: string, onlineMode: boolean): Promise<void> {
+  private async syncOfflineServerProperties(serverId: string): Promise<void> {
+    await this.syncServerProperty(serverId, 'online-mode', 'false');
+    await this.syncServerProperty(serverId, 'enforce-secure-profile', 'false');
+  }
+
+  private async syncServerProperty(serverId: string, key: string, value: string): Promise<void> {
     const propsPath = path.join(this.getMcDataPath(serverId), 'server.properties');
-    const desired = onlineMode ? 'true' : 'false';
+    const pattern = new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=.*$`, 'm');
 
     try {
       if (!(await fs.pathExists(propsPath))) {
@@ -960,20 +985,20 @@ export class DockerComposeService {
       }
 
       let content = await fs.readFile(propsPath, 'utf8');
-      if (/^online-mode=/m.test(content)) {
-        const updated = content.replace(/^online-mode=.*$/m, `online-mode=${desired}`);
+      if (pattern.test(content)) {
+        const updated = content.replace(pattern, `${key}=${value}`);
         if (updated === content) {
           return;
         }
         content = updated;
       } else {
-        content = `${content.trimEnd()}\nonline-mode=${desired}\n`;
+        content = `${content.trimEnd()}\n${key}=${value}\n`;
       }
 
       await fs.writeFile(propsPath, content, 'utf8');
-      this.logger.log(`Synced online-mode=${desired} in server.properties for ${serverId}`);
+      this.logger.log(`Synced ${key}=${value} in server.properties for ${serverId}`);
     } catch (error) {
-      this.logger.warn(`Could not sync online-mode in server.properties for ${serverId}`, error);
+      this.logger.warn(`Could not sync ${key} in server.properties for ${serverId}`, error);
     }
   }
 
@@ -1548,7 +1573,9 @@ export class DockerComposeService {
   }
 
   async generateDockerComposeFile(config: ServerConfig, proxyEnabled: boolean = false): Promise<void> {
-    const normalizedConfig = this.normalizeAutoStopRestartPolicy(config);
+    const normalizedConfig = this.applyForgeConnectivityDefaults(
+      this.normalizeAutoStopRestartPolicy(config),
+    );
 
     const serverDir = path.join(this.SERVERS_DIR, config.id);
     await fs.ensureDir(serverDir);
@@ -1558,6 +1585,7 @@ export class DockerComposeService {
 
     // Use strategy to build environment
     const environment = strategy.buildEnvironment(normalizedConfig);
+    this.applyForgeOfflineEnv(environment, normalizedConfig);
 
     // When proxy is enabled, servers don't expose ports to host, so no need to find available port
     // Note: Proxy only works with Java edition (mc-router doesn't support Bedrock)

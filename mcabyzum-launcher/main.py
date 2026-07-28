@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import uuid
+import hashlib
 from pathlib import Path
 
 import minecraft_launcher_lib
@@ -174,7 +175,14 @@ def load_settings() -> dict:
     path = user_settings_path()
     if path.exists():
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
+            username = (data.get("username") or "").strip()
+            if username:
+                expected = offline_uuid(username)
+                if data.get("uuid") != expected:
+                    data["uuid"] = expected
+                    save_settings(data)
+            return data
         except (json.JSONDecodeError, OSError):
             return {}
     return {}
@@ -235,7 +243,14 @@ def minecraft_dir() -> Path:
 
 
 def offline_uuid(username: str) -> str:
-    return str(uuid.uuid3(uuid.NAMESPACE_DNS, f"OfflinePlayer:{username}"))
+    """Same algorithm as Java UUID.nameUUIDFromBytes for OfflinePlayer."""
+    digest = hashlib.md5(f"OfflinePlayer:{username}".encode("utf-8")).digest()
+    data = bytearray(digest)
+    data[6] &= 0x0F
+    data[6] |= 0x30
+    data[8] &= 0x3F
+    data[8] |= 0x80
+    return str(uuid.UUID(bytes=bytes(data)))
 
 
 class Api:
@@ -445,7 +460,7 @@ class Api:
         options: minecraft_launcher_lib.types.MinecraftOptions = {
             "username": username,
             "uuid": player_uuid,
-            "token": "0",
+            "token": "",
             "launcherName": self.config["app_name"],
             "launcherVersion": "1.4.0",
             "gameDirectory": mc_dir,
