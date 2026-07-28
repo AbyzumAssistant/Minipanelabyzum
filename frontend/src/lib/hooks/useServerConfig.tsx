@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ServerConfig } from '../types/types';
 import {
   apiClearServerData,
@@ -195,7 +195,7 @@ export function useServerConfig(serverId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId]);
 
-  const updateConfig = <K extends keyof ServerConfig>(field: K, value: ServerConfig[K]) => {
+  const updateConfig = useCallback(<K extends keyof ServerConfig>(field: K, value: ServerConfig[K]) => {
     setConfig((prev) => {
       if (field === 'enableAutoStop') {
         const enableAutoStop = Boolean(value);
@@ -211,7 +211,7 @@ export function useServerConfig(serverId: string) {
         [field]: value,
       });
     });
-  };
+  }, []);
 
   const saveConfig = async (configToSave?: ServerConfig): Promise<boolean> => {
     const dataToSave = normalizeAutoStopRestartPolicy(configToSave || config);

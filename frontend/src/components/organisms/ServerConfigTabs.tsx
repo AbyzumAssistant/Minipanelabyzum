@@ -185,8 +185,10 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
   }, [storeActive, activeTab]);
 
   useEffect(() => {
-    setActiveNav(activeTab);
-  }, [activeTab, setActiveNav]);
+    if (storeActive !== activeTab) {
+      setActiveNav(activeTab);
+    }
+  }, [activeTab, setActiveNav, storeActive]);
 
   useEffect(() => () => clearNav(), [clearNav]);
 

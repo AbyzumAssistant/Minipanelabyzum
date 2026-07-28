@@ -45,6 +45,7 @@ export const ConnectivitySettingsTab: FC<ConnectivitySettingsTabProps> = ({
 
   const isJava = config.edition !== 'BEDROCK';
   const isBedrock = config.edition === 'BEDROCK';
+  const isForgeServer = isJava && config.serverType === 'FORGE';
   // Proxy only works with Java edition
   const serverUsesProxy = isJava && proxyEnabled && config.useProxy !== false;
   const defaultPort = isBedrock ? '19132' : '25569';
@@ -117,11 +118,16 @@ export const ConnectivitySettingsTab: FC<ConnectivitySettingsTabProps> = ({
               </Label>
               <Switch
                 id="onlineMode"
-                checked={config.onlineMode !== false}
+                checked={isForgeServer ? false : config.onlineMode !== false}
+                disabled={isForgeServer}
                 onCheckedChange={(checked) => updateConfig('onlineMode', checked)}
               />
             </div>
-            <p className="text-xs text-gray-400">{t('onlineModeDesc')}</p>
+            <p className="text-xs text-gray-400">
+              {isForgeServer
+                ? 'Forge Abyzum usa modo offline (cracked) para que el launcher MCABYZUM pueda entrar sin cuenta premium.'
+                : t('onlineModeDesc')}
+            </p>
           </div>
 
           {isJava && (

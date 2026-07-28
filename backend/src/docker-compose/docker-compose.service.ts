@@ -313,7 +313,7 @@ export class DockerComposeService {
       if (edition === 'JAVA') {
         this.parseServerTypeSpecificConfig(serverConfig, env);
       }
-      return this.normalizeAutoStopRestartPolicy(serverConfig);
+      return this.applyForgeConnectivityDefaults(this.normalizeAutoStopRestartPolicy(serverConfig));
     } catch (error) {
       this.logger.error(`Error loading config for server ${serverId}`, error);
       return this.createDefaultConfig(serverId);
@@ -939,7 +939,42 @@ export class DockerComposeService {
     }
 
     await this.generateDockerComposeFile(updatedConfig, proxyEnabled);
+    await this.syncOnlineModeInServerProperties(id, updatedConfig.onlineMode !== false);
     return updatedConfig;
+  }
+
+  private applyForgeConnectivityDefaults(config: ServerConfig): ServerConfig {
+    if (config.serverType === 'FORGE' || config.modrinthLoader === 'forge') {
+      return { ...config, onlineMode: false };
+    }
+    return config;
+  }
+
+  private async syncOnlineModeInServerProperties(serverId: string, onlineMode: boolean): Promise<void> {
+    const propsPath = path.join(this.getMcDataPath(serverId), 'server.properties');
+    const desired = onlineMode ? 'true' : 'false';
+
+    try {
+      if (!(await fs.pathExists(propsPath))) {
+        return;
+      }
+
+      let content = await fs.readFile(propsPath, 'utf8');
+      if (/^online-mode=/m.test(content)) {
+        const updated = content.replace(/^online-mode=.*$/m, `online-mode=${desired}`);
+        if (updated === content) {
+          return;
+        }
+        content = updated;
+      } else {
+        content = `${content.trimEnd()}\nonline-mode=${desired}\n`;
+      }
+
+      await fs.writeFile(propsPath, content, 'utf8');
+      this.logger.log(`Synced online-mode=${desired} in server.properties for ${serverId}`);
+    } catch (error) {
+      this.logger.warn(`Could not sync online-mode in server.properties for ${serverId}`, error);
+    }
   }
 
   private buildBaseEnvironment(config: ServerConfig): Record<string, string> {

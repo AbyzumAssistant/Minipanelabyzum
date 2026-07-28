@@ -1,27 +1,18 @@
 'use client';
 
-import { FC, useEffect } from 'react';
+import { FC } from 'react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ServerConfig } from '@/lib/types/types';
-import { FORGE_119_PROFILE, applyForge119Defaults } from '@/lib/forge-defaults';
+import { FORGE_119_PROFILE } from '@/lib/forge-defaults';
 
 interface Forge119TypePanelProps {
   config: ServerConfig;
   updateConfig: <K extends keyof ServerConfig>(field: K, value: ServerConfig[K]) => void;
 }
 
-export const Forge119TypePanel: FC<Forge119TypePanelProps> = ({ config, updateConfig }) => {
-  useEffect(() => {
-    const normalized = applyForge119Defaults(config);
-    (Object.keys(FORGE_119_PROFILE) as Array<keyof typeof FORGE_119_PROFILE>).forEach((key) => {
-      if (config[key] !== normalized[key]) {
-        updateConfig(key, normalized[key] as ServerConfig[typeof key]);
-      }
-    });
-  }, [config, updateConfig]);
-
+export const Forge119TypePanel: FC<Forge119TypePanelProps> = ({ config }) => {
   return (
     <Card className="overflow-hidden border-zinc-800 bg-zinc-950 shadow-none">
       <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 pb-4">
@@ -48,6 +39,9 @@ export const Forge119TypePanel: FC<Forge119TypePanelProps> = ({ config, updateCo
           </Badge>
           <Badge variant="outline" className="border-zinc-700 text-zinc-300 bg-zinc-900">
             Aikar flags
+          </Badge>
+          <Badge variant="outline" className="border-emerald-800 text-emerald-300 bg-emerald-950/40">
+            Modo offline
           </Badge>
         </div>
         <div className="grid gap-2 text-zinc-400 sm:grid-cols-2">
