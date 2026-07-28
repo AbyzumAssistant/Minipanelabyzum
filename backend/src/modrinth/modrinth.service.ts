@@ -1232,6 +1232,58 @@ export class ModrinthService {
     return path.join(__dirname, '..', 'assets', 'launcher');
   }
 
+  private mcabyzumLauncherWinDir(): string {
+    return path.join(this.launcherAssetsDir(), 'MCABYZUM-win');
+  }
+
+  private mcabyzumLoginModPath(): string {
+    return path.join(this.launcherAssetsDir(), 'mods', 'mcabyzum-login.jar');
+  }
+
+  private resolvePublicBackendUrl(panelUrl?: string): string {
+    const landing = process.env.LANDING_URL?.trim();
+    if (landing) {
+      return `${landing.replace(/\/$/, '')}/api/backend`;
+    }
+    const panel = process.env.PANEL_URL?.trim() || panelUrl?.split(',')[0]?.trim();
+    if (panel) {
+      return `${panel.replace(/\/$/, '')}/api/backend`;
+    }
+    return '/api/backend';
+  }
+
+  private buildMcabyzumLauncherConfig(
+    serverId: string,
+    manifest: NonNullable<Awaited<ReturnType<typeof this.getDeployManifest>>>,
+    panelUrl?: string,
+  ): Record<string, unknown> {
+    const gameVersion = manifest.gameVersion || '1.19.2';
+    const forgeBuild = manifest.forgeBuild || '43.3.0';
+    return {
+      app_name: 'MCABYZUM',
+      brand: 'abyzum',
+      minecraft_version: gameVersion,
+      mod_loader: 'forge',
+      forge_version: `${gameVersion}-${forgeBuild}`,
+      panel_server_id: serverId,
+      backend_url: this.resolvePublicBackendUrl(panelUrl),
+      server: manifest.server,
+      java: { min_ram_mb: 2048, max_ram_mb: 4096 },
+      offline_default_name: 'Player',
+      launcherRevision: manifest.launcherRevision ?? 0,
+      builtAt: new Date().toISOString(),
+    };
+  }
+
+  private async pathExists(target: string): Promise<boolean> {
+    try {
+      await fs.access(target);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private launcherBuildDir(serverId: string): string {
     const baseDir = this.configService.get<string>('baseDir') ?? process.env.BASE_DIR ?? '.';
     return path.join(baseDir, 'servers', serverId, 'launcher-build');
@@ -1291,50 +1343,53 @@ export class ModrinthService {
     const output = createWriteStream(tempPath);
     const archive = archiver('zip', { zlib: { level: 6 } });
 
-    const config = {
-      serverId,
-      server: manifest.server,
-      panelUrl: panelUrl?.replace(/\/$/, '') ?? '',
-      manifestUrl: panelUrl
-        ? `${panelUrl.replace(/\/$/, '')}/api/backend/modrinth/deploy/${serverId}/manifest`
-        : `/api/backend/modrinth/deploy/${serverId}/manifest`,
-      gameVersion: manifest.gameVersion,
-      loader: manifest.loader,
-      forgeBuild: manifest.forgeBuild ?? '43.3.0',
-      launcherRevision: manifest.launcherRevision ?? 0,
-      builtAt: new Date().toISOString(),
-    };
-
-    const assetsDir = this.launcherAssetsDir();
-    const exePath = path.join(assetsDir, 'MCABYZUM-Launcher.exe');
-    const jsPath = path.join(assetsDir, 'launcher.js');
-    const readmePath = path.join(assetsDir, 'LEEME.txt');
-    const iconPath = path.join(assetsDir, 'icon.svg');
+    const launcherConfig = this.buildMcabyzumLauncherConfig(serverId, manifest, panelUrl);
+    const mcabyzumWinDir = this.mcabyzumLauncherWinDir();
+    const hasMcabyzumInstaller = await this.pathExists(path.join(mcabyzumWinDir, 'MCABYZUM.exe'));
 
     archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' });
-    archive.append(JSON.stringify(config, null, 2), { name: 'config.json' });
+    archive.append(JSON.stringify(launcherConfig, null, 2), { name: 'config.json' });
 
-    try {
-      await fs.access(exePath);
-      archive.file(exePath, { name: 'MCABYZUM-Launcher.exe' });
-    } catch {
-      archive.file(jsPath, { name: 'launcher.js' });
-      archive.append(
-        '@echo off\r\ncd /d "%~dp0"\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL%==0 (node launcher.js) else (echo Instala Node.js o usa MCABYZUM-Launcher.exe)\r\npause\r\n',
-        { name: 'MCABYZUM-Launcher.bat' },
-      );
-    }
-
+    const readmePath = path.join(this.launcherAssetsDir(), 'LEEME.txt');
     try {
       archive.file(readmePath, { name: 'LEEME.txt' });
     } catch {
       /* optional */
     }
 
-    try {
-      archive.file(iconPath, { name: 'icon.svg' });
-    } catch {
-      /* optional */
+    if (hasMcabyzumInstaller) {
+      archive.directory(mcabyzumWinDir, 'MCABYZUM');
+      archive.append(JSON.stringify(launcherConfig, null, 2), { name: 'MCABYZUM/config.json' });
+      archive.append(
+        '@echo off\r\n' +
+          'cd /d "%~dp0"\r\n' +
+          'if not exist "MCABYZUM\\MCABYZUM.exe" (\r\n' +
+          '  echo Falta MCABYZUM\\MCABYZUM.exe\r\n' +
+          '  pause\r\n' +
+          '  exit /b 1\r\n' +
+          ')\r\n' +
+          'start "" "MCABYZUM\\MCABYZUM.exe"\r\n',
+        { name: 'Instalar y jugar.bat' },
+      );
+    } else {
+      const assetsDir = this.launcherAssetsDir();
+      const exePath = path.join(assetsDir, 'MCABYZUM-Launcher.exe');
+      const jsPath = path.join(assetsDir, 'launcher.js');
+      try {
+        await fs.access(exePath);
+        archive.file(exePath, { name: 'MCABYZUM-Launcher.exe' });
+      } catch {
+        archive.file(jsPath, { name: 'launcher.js' });
+        archive.append(
+          '@echo off\r\ncd /d "%~dp0"\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL%==0 (node launcher.js) else (echo Instala Node.js o reconstruye MCABYZUM.exe en Windows)\r\npause\r\n',
+          { name: 'MCABYZUM-Launcher.bat' },
+        );
+      }
+    }
+
+    const loginModPath = this.mcabyzumLoginModPath();
+    if (await this.pathExists(loginModPath)) {
+      archive.file(loginModPath, { name: path.posix.join('mods', 'mcabyzum-login.jar') });
     }
 
     for (const mod of manifest.mods) {
@@ -1377,9 +1432,10 @@ export class ModrinthService {
       this.launcherBuildMetaPath(serverId),
       JSON.stringify(
         {
-          builtAt: config.builtAt,
+          builtAt: launcherConfig.builtAt,
           modCount: manifest.mods.length,
           launcherRevision: manifest.launcherRevision ?? 0,
+          installer: hasMcabyzumInstaller ? 'MCABYZUM.exe' : 'legacy',
         },
         null,
         2,

@@ -136,8 +136,8 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
         <h1 class="hero-title">${escapeHtml(serverName)}</h1>
         <p class="hero-subtitle">Minecraft ${escapeHtml(version)}</p>
         <p class="hero-copy">
-          Descarga Java + Minecraft Forge ${escapeHtml(version)} + login Abyzum.
-          Sin menú vanilla: solo entrar al servidor.
+          Descarga el instalador MCABYZUM (Forge ${escapeHtml(version)} + mods + IP ${escapeHtml(address || 'del servidor')}).
+          Extrae el ZIP, ejecuta MCABYZUM.exe y pulsa Entrar en el launcher.
         </p>
 
         <label class="field-label" for="player-name">NOMBRE EN EL SERVIDOR</label>
@@ -152,7 +152,7 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
         />
 
         <div class="actions">
-          <button class="btn btn-enter" id="enter-btn" type="button">ENTRAR</button>
+          <button class="btn btn-enter" id="enter-btn" type="button">DESCARGAR INSTALADOR</button>
           <button class="btn btn-repair" id="repair-btn" type="button">INSPECCIONAR / REPARAR</button>
         </div>
 
@@ -172,32 +172,25 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
   enterBtn?.addEventListener('click', async () => {
     if (!(enterBtn instanceof HTMLButtonElement)) return;
     const nick = playerInput?.value.trim() ?? '';
-    if (!nick) {
-      setStatus('Escribe tu nombre en el servidor antes de entrar.', true);
-      playerInput?.focus();
-      return;
-    }
-
     saveUsername(serverId, nick);
     enterBtn.disabled = true;
-    enterBtn.textContent = 'PREPARANDO…';
-    setStatus('Descargando launcher con mods y resource pack…');
+    enterBtn.textContent = 'DESCARGANDO…';
+    setStatus('Descargando instalador MCABYZUM con mods incluidos…');
 
     if (address) {
-      const copied = await copyText(address);
-      if (copied) {
-        setStatus(`Descarga iniciada. IP copiada: ${address}`);
-      }
+      await copyText(address);
     }
 
     window.location.href = launcherDownloadUrl(serverId);
 
     window.setTimeout(() => {
       enterBtn.disabled = false;
-      enterBtn.textContent = 'ENTRAR';
-      if (address) {
-        setStatus(`Extrae el ZIP, ejecuta MCABYZUM-Launcher.exe y conecta a ${address}`);
-      }
+      enterBtn.textContent = 'DESCARGAR INSTALADOR';
+      setStatus(
+        address
+          ? `Extrae el ZIP → Instalar y jugar.bat → nick en el launcher. Servidor: ${address}`
+          : 'Extrae el ZIP y ejecuta Instalar y jugar.bat',
+      );
     }, 5000);
   });
 

@@ -1,0 +1,17 @@
+{
+  "app_name": "MCABYZUM",
+  "brand": "abyzum",
+  "minecraft_version": "1.19",
+  "mod_loader": "forge",
+  "forge_version": "1.19-41.1.0",
+  "server": {
+    "host": "PLAY.MCABYZUM.COM",
+    "port": 25565,
+    "name": "Abyzum Server"
+  },
+  "java": {
+    "min_ram_mb": 2048,
+    "max_ram_mb": 4096
+  },
+  "offline_default_name": "Player"
+}
