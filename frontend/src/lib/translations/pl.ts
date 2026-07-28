@@ -89,6 +89,8 @@ export const pl: Record<TranslationKey, string> = {
   clearDataSuccess: 'Dane serwera zostały pomyślnie wyczyszczone',
   clearDataError: 'Błąd podczas czyszczenia danych serwera',
   saveChanges: 'Zapisz zmiany',
+  saveServer: 'Zapisz serwer',
+  saveServerHint: 'Zapisz bieżącą konfigurację w panelu',
   addPort: 'Dodaj port',
   addVariable: 'Dodaj zmienną',
   comingSoon: 'Wkrótce dostępne',

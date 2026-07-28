@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, PowerIcon, RefreshCw, Server, FolderOpen, Trash2 } from "lucide-react";
+import { ArrowLeft, PowerIcon, RefreshCw, Server, FolderOpen, Trash2, Save } from "lucide-react";
 import { useLanguage } from "@/lib/hooks/useLanguage";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useState } from "react";
@@ -22,9 +22,13 @@ interface ServerPageHeaderProps {
   readonly onRestartServer: () => Promise<boolean>;
   readonly onClearData: () => Promise<boolean>;
   readonly onOpenFiles?: () => void;
+  readonly onSaveConfig?: () => Promise<boolean>;
+  readonly isSaving?: boolean;
+  readonly hasUnsavedChanges?: boolean;
+  readonly canEditConfig?: boolean;
 }
 
-export function ServerPageHeader({ serverId, serverName, serverStatus, serverPort, serverEdition, isProcessing, onStartServer, onStopServer, onRestartServer, onClearData, onOpenFiles }: ServerPageHeaderProps) {
+export function ServerPageHeader({ serverId, serverName, serverStatus, serverPort, serverEdition, isProcessing, onStartServer, onStopServer, onRestartServer, onClearData, onOpenFiles, onSaveConfig, isSaving = false, hasUnsavedChanges = false, canEditConfig = true }: ServerPageHeaderProps) {
   const { t } = useLanguage();
   const containerName = serverId;
   const [isClearing, setIsClearing] = useState(false);
@@ -92,6 +96,23 @@ export function ServerPageHeader({ serverId, serverName, serverStatus, serverPor
         </div>
 
         <div className="ml-auto flex flex-wrap gap-2 mt-3 md:mt-0">
+          {canEditConfig && onSaveConfig && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void onSaveConfig()}
+              disabled={isSaving}
+              className={`gap-2 font-minecraft text-white border-emerald-700/50 ${
+                hasUnsavedChanges
+                  ? "bg-emerald-700/40 hover:bg-emerald-600/50 hover:border-emerald-500"
+                  : "bg-gray-800/40 hover:bg-emerald-600/20 hover:border-emerald-600/50"
+              }`}
+            >
+              <Save className={`h-4 w-4 ${isSaving ? "animate-spin" : ""}`} />
+              {isSaving ? t("saving") : t("saveServer")}
+            </Button>
+          )}
+
           {serverStatus === "running" || serverStatus === "starting" ? (
             <Button type="button" variant="destructive" onClick={onStopServer} className="gap-2 bg-red-600 hover:bg-red-700 font-minecraft text-white">
               <PowerIcon className="h-4 w-4" />

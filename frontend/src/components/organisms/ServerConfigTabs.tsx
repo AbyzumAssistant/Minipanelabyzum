@@ -1,9 +1,10 @@
-import { FormEvent, FC, useEffect, useState } from "react";
+import { FormEvent, FC, useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ServerConfig } from "@/lib/types/types";
 import { importWithRetry } from "@/lib/chunk-recovery";
 import { SaveModeControl } from "../molecules/SaveModeControl";
+import { TabPanelErrorBoundary } from "../molecules/TabPanelErrorBoundary";
 import { Settings, Server, Cpu, Package, Terminal, ScrollText, Code, Layers, FolderOpen, Smartphone, Activity, Clock, Rocket, Globe } from "lucide-react";
 import { useLanguage } from "@/lib/hooks/useLanguage";
 import { type TabSearchItem } from "./TabSearch";
@@ -43,13 +44,23 @@ interface ServerConfigTabsProps {
   readonly serverId: string;
   readonly config: ServerConfig;
   readonly updateConfig: <K extends keyof ServerConfig>(field: K, value: ServerConfig[K]) => void;
-  readonly saveConfig: () => Promise<boolean>;
   readonly serverStatus: string;
   readonly isSaving: boolean;
+  readonly hasUnsavedChanges: boolean;
+  readonly onSaveConfig: () => Promise<boolean>;
   readonly refreshToken?: number;
 }
 
-export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, updateConfig, saveConfig, serverStatus, isSaving, refreshToken = 0 }) => {
+export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
+  serverId,
+  config,
+  updateConfig,
+  serverStatus,
+  isSaving,
+  hasUnsavedChanges,
+  onSaveConfig,
+  refreshToken = 0,
+}) => {
   const { t } = useLanguage();
   const setNav = useServerNavStore((state) => state.setNav);
   const setActiveNav = useServerNavStore((state) => state.setActive);
@@ -131,25 +142,16 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab());
-  const [savedConfig, setSavedConfig] = useState<ServerConfig | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Initialize savedConfig when config loads from server
   useEffect(() => {
-    if (config.id && !savedConfig) {
-      setSavedConfig(config);
-    }
-  }, [config, savedConfig]);
-
-  // Detect unsaved changes
-  useEffect(() => {
-    if (!savedConfig) {
-      setHasUnsavedChanges(false);
-      return;
-    }
-    const configChanged = JSON.stringify(config) !== JSON.stringify(savedConfig);
-    setHasUnsavedChanges(configChanged);
-  }, [config, savedConfig]);
+    if (typeof window === "undefined" || !hasUnsavedChanges) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -190,19 +192,12 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const success = await saveConfig();
-    if (success) {
-      setSavedConfig(config);
-    }
+    await onSaveConfig();
   };
 
-  const handleSaveConfig = async () => {
-    const success = await saveConfig();
-    if (success) {
-      setSavedConfig(config);
-    }
-    return success;
-  };
+  const wrapTab = (label: string, node: ReactNode) => (
+    <TabPanelErrorBoundary tabLabel={label}>{node}</TabPanelErrorBoundary>
+  );
 
   useEffect(() => {
     if (isServerRunning) {
@@ -215,7 +210,13 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
 
   return (
     <div className="space-y-4 pb-24 animate-fade-in">
-      {!isServerRunning && <SaveModeControl onManualSave={handleSaveConfig} isSaving={isSaving} hasUnsavedChanges={hasUnsavedChanges} />}
+      {!isServerRunning && (
+        <SaveModeControl
+          onManualSave={onSaveConfig}
+          isSaving={isSaving}
+          hasUnsavedChanges={hasUnsavedChanges}
+        />
+      )}
 
       {isServerRunning && (
         <div className="mc-slot p-4 flex items-start gap-3 animate-fade-in-up" style={{ borderColor: "#f5c542" }}>
@@ -241,85 +242,97 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({ serverId, config, 
         }} className="w-full">
           <div className="mc-panel min-w-0 p-4 text-gray-200 min-h-[400px]">
               <TabsContent value="type" className="space-y-4 mt-0">
-                <ServerTypeTab config={config} updateConfig={updateConfig} />
+                {wrapTab(t("serverType"), <ServerTypeTab config={config} updateConfig={updateConfig} />)}
               </TabsContent>
 
               <TabsContent value="general" className="space-y-4 mt-0">
-                <GeneralSettingsTab serverId={serverId} serverStatus={serverStatus} config={config} updateConfig={updateConfig} />
+                {wrapTab(
+                  t("general"),
+                  <GeneralSettingsTab serverId={serverId} serverStatus={serverStatus} config={config} updateConfig={updateConfig} />,
+                )}
               </TabsContent>
 
               {showResourcesTab && (
                 <TabsContent value="resources" className="space-y-4 mt-0">
-                  <ResourcesTab config={config} updateConfig={updateConfig} />
+                  {wrapTab(t("resources"), <ResourcesTab config={config} updateConfig={updateConfig} />)}
                 </TabsContent>
               )}
 
               {isBedrock && (
                 <TabsContent value="bedrock" className="space-y-4 mt-0">
-                  <BedrockSettingsTab config={config} updateConfig={updateConfig} />
+                  {wrapTab(t("bedrock"), <BedrockSettingsTab config={config} updateConfig={updateConfig} />)}
                 </TabsContent>
               )}
 
               {isBedrock && (
                 <TabsContent value="addons" className="space-y-4 mt-0">
-                  <BedrockAddonsTab serverId={serverId} refreshToken={refreshToken} />
+                  {wrapTab(t("addons"), <BedrockAddonsTab serverId={serverId} refreshToken={refreshToken} />)}
                 </TabsContent>
               )}
 
               {showModsTab && (
                 <TabsContent value="mods" className="space-y-4 mt-0">
-                  <ModsTab serverId={serverId} config={config} updateConfig={updateConfig} />
+                  {wrapTab(t("mods"), <ModsTab serverId={serverId} config={config} updateConfig={updateConfig} />)}
                 </TabsContent>
               )}
 
               {showDeployTab && (
                 <TabsContent value="deploy" className="space-y-4 mt-0">
-                  <ModDeployTab serverId={serverId} config={config} updateConfig={updateConfig} />
+                  {wrapTab(t("modDeployTitle"), <ModDeployTab serverId={serverId} config={config} updateConfig={updateConfig} />)}
                 </TabsContent>
               )}
 
               {showDeployTab && (
                 <TabsContent value="landing" className="space-y-4 mt-0">
-                  <LandingTab serverId={serverId} config={config} />
+                  {wrapTab(t("landingTabTitle"), <LandingTab serverId={serverId} config={config} />)}
                 </TabsContent>
               )}
 
               {showPaperMcTab && (
                 <TabsContent value="papermc" className="space-y-4 mt-0">
-                  <PaperPluginBuilderTab serverId={serverId} config={config} updateConfig={updateConfig} />
+                  {wrapTab(
+                    t("paperMcBuilderTitle"),
+                    <PaperPluginBuilderTab serverId={serverId} config={config} updateConfig={updateConfig} />,
+                  )}
                 </TabsContent>
               )}
 
               {showPluginsTab && (
                 <TabsContent value="plugins" className="space-y-4 mt-0">
-                  <PluginsTab config={config} updateConfig={updateConfig} />
+                  {wrapTab(t("plugins"), <PluginsTab config={config} updateConfig={updateConfig} />)}
                 </TabsContent>
               )}
 
               <TabsContent value="advanced" className="space-y-4 mt-0">
-                <AdvancedTab config={config} updateConfig={updateConfig} />
+                {wrapTab(t("advanced"), <AdvancedTab config={config} updateConfig={updateConfig} />)}
               </TabsContent>
 
               <TabsContent value="logs" className="space-y-4 mt-0">
-                <LogsTab serverId={serverId} rconPort={config.rconPort} rconPassword={config.rconPassword} serverStatus={serverStatus} />
+                {wrapTab(
+                  t("logs"),
+                  <LogsTab serverId={serverId} rconPort={config.rconPort} rconPassword={config.rconPassword} serverStatus={serverStatus} />,
+                )}
               </TabsContent>
 
               {showCommandsTab && (
                 <TabsContent value="commands" className="space-y-4 mt-0">
-                  <CommandsTab serverId={serverId} serverStatus={serverStatus} rconPort={config.rconPort} rconPassword={config.rconPassword} />
+                  {wrapTab(
+                    t("commands"),
+                    <CommandsTab serverId={serverId} serverStatus={serverStatus} rconPort={config.rconPort} rconPassword={config.rconPassword} />,
+                  )}
                 </TabsContent>
               )}
 
               <TabsContent value="files" className="space-y-4 mt-0">
-                <FilesTab serverId={serverId} />
+                {wrapTab(t("files"), <FilesTab serverId={serverId} />)}
               </TabsContent>
 
               <TabsContent value="metrics" className="space-y-4 mt-0">
-                <MetricsTab serverId={serverId} />
+                {wrapTab(t("metrics"), <MetricsTab serverId={serverId} />)}
               </TabsContent>
 
               <TabsContent value="tasks" className="space-y-4 mt-0">
-                <ScheduledTasksTab serverId={serverId} />
+                {wrapTab(t("tasks"), <ScheduledTasksTab serverId={serverId} />)}
               </TabsContent>
           </div>
         </Tabs>

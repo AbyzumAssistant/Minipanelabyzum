@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/hooks/useLanguage";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { AUTH_LOGIN_PATH } from "@/lib/auth-routes";
 import { useUIStore } from "@/lib/store/ui-store";
+import { clearChunkReloadFlag } from "@/lib/chunk-recovery";
 
 interface DashboardShellProps {
   readonly children: React.ReactNode;
@@ -22,6 +23,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   useEffect(() => {
     initialize();
     setHydrated(true);
+    clearChunkReloadFlag();
   }, [initialize, setHydrated]);
 
   useEffect(() => {

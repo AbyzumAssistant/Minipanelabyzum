@@ -87,6 +87,8 @@ export const en = {
   clearDataSuccess: 'Server data cleared successfully',
   clearDataError: 'Error clearing server data',
   saveChanges: 'Save Changes',
+  saveServer: 'Save server',
+  saveServerHint: 'Save current server config to the panel',
   addPort: 'Add Port',
   addVariable: 'Add Variable',
   comingSoon: 'Coming Soon',

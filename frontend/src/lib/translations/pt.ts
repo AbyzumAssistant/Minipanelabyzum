@@ -89,6 +89,8 @@ export const pt: Record<TranslationKey, string> = {
   clearDataSuccess: 'Dados do servidor apagados com sucesso',
   clearDataError: 'Erro ao apagar os dados do servidor',
   saveChanges: 'Salvar Alterações',
+  saveServer: 'Salvar servidor',
+  saveServerHint: 'Salvar a configuração atual no painel',
   addPort: 'Adicionar Porta',
   addVariable: 'Adicionar Variável',
   comingSoon: 'Em breve',

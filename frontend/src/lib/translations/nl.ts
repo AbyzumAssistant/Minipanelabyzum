@@ -89,6 +89,8 @@ export const nl: Record<TranslationKey, string> = {
   clearDataSuccess: 'Servergegevens succesvol gewist',
   clearDataError: 'Fout bij het wissen van de servergegevens',
   saveChanges: 'Wijzigingen opslaan',
+  saveServer: 'Server opslaan',
+  saveServerHint: 'Huidige serverconfig in het panel opslaan',
   addPort: 'Poort toevoegen',
   addVariable: 'Variabele toevoegen',
   comingSoon: 'Binnenkort beschikbaar',

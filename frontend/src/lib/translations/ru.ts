@@ -89,6 +89,8 @@ export const ru: Record<TranslationKey, string> = {
   clearDataSuccess: 'Данные сервера очищены',
   clearDataError: 'Ошибка очистки данных сервера',
   saveChanges: 'Сохранить изменения',
+  saveServer: 'Сохранить сервер',
+  saveServerHint: 'Сохранить текущую конфигурацию в панели',
   addPort: 'Добавить порт',
   addVariable: 'Добавить переменную',
   comingSoon: 'Скоро...',

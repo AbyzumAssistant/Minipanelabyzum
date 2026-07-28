@@ -16,7 +16,8 @@ export function isChunkLoadError(error: unknown): boolean {
     message.includes('failed to fetch dynamically imported module') ||
     message.includes('importing a module script failed') ||
     message.includes('failed to load') ||
-    message.includes('load failed')
+    message.includes('load failed') ||
+    message.includes('chunkloaderror')
   );
 }
 
@@ -27,11 +28,14 @@ export function isRecoverableNetworkError(error: unknown): boolean {
   return err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || err.code === 'ETIMEDOUT';
 }
 
-export function reloadOnceForChunkError(): boolean {
+export function reloadOnceForChunkError(force = false): boolean {
   if (typeof window === 'undefined') return false;
-  if (sessionStorage.getItem(RELOAD_SESSION_KEY)) return false;
+  if (!force && sessionStorage.getItem(RELOAD_SESSION_KEY)) return false;
   sessionStorage.setItem(RELOAD_SESSION_KEY, String(Date.now()));
-  window.location.reload();
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('_mc', String(Date.now()));
+  window.location.replace(url.toString());
   return true;
 }
 
@@ -40,12 +44,12 @@ export function clearChunkReloadFlag(): void {
   sessionStorage.removeItem(RELOAD_SESSION_KEY);
 }
 
-export async function importWithRetry<T>(loader: () => Promise<T>, retries = 2): Promise<T> {
+export async function importWithRetry<T>(loader: () => Promise<T>, retries = 4): Promise<T> {
   try {
     return await loader();
   } catch (error) {
     if (retries > 0 && isChunkLoadError(error)) {
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await sleep(400 + (4 - retries) * 250);
       return importWithRetry(loader, retries - 1);
     }
     throw error;
