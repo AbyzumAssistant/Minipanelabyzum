@@ -72,7 +72,8 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
 
   // Java-only tabs
   const showModsTab = isJava && (config.serverType === "FORGE" || config.serverType === "NEOFORGE" || config.serverType === "FABRIC" || config.serverType === "AUTO_CURSEFORGE" || config.serverType === "CURSEFORGE" || config.serverType === 'MODRINTH' || config.serverType === 'GTNH' || config.serverType === 'FTBA');
-  const showDeployTab = isJava && config.serverType === "FORGE";
+  const showDeployTab =
+    isJava && (config.serverType === "FORGE" || config.serverType === "MODRINTH");
   const showPaperMcTab = isJava && config.serverType === "PAPER";
   const showPluginsTab = isJava && (config.serverType === "SPIGOT" || config.serverType === "PAPER" || config.serverType === "BUKKIT" || config.serverType === "PUFFERFISH" || config.serverType === "PURPUR" || config.serverType === "LEAF" || config.serverType === "FOLIA");
   const showResourcesTab = isJava; // JVM settings only apply to Java

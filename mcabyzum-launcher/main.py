@@ -1,5 +1,5 @@
 """
-MCABYZUM — launcher Minecraft 1.19 locked to Abyzum server.
+MCABYZUM — launcher Minecraft 1.20.1 (Horizons / Fabric) locked to mcabyzum server.
 Does not redistribute Minecraft binaries; downloads from Mojang on first launch.
 """
 from __future__ import annotations
@@ -19,6 +19,7 @@ import webview
 
 from inspector import GameInspector
 from forge_setup import ensure_forge_and_mod, write_mod_config
+from fabric_setup import ensure_fabric
 from manifest_sync import check_mods_current, sync_from_panel
 
 
@@ -49,6 +50,11 @@ DEPLOY_CONFIG_KEYS = frozenset(
         "launcherRevision",
         "builtAt",
         "forge_build_hint",
+        "fabric_loader_version",
+        "profile",
+        "modpack_title",
+        "shader_pack_url",
+        "shader_pack_note",
     }
 )
 PLACEHOLDER_HOSTS = frozenset({"", "play.mcabyzum.com", "mcabyzum.com", "localhost"})
@@ -108,8 +114,8 @@ def normalize_server(server: dict | None, fallback: dict | None = None) -> dict:
     except (TypeError, ValueError):
         port = DEFAULT_SERVER_PORT
 
-    name = (current.get("name") or backup.get("name") or "Abyzum Server").strip()
-    return {"host": host, "port": port, "name": name or "Abyzum Server"}
+    name = (current.get("name") or backup.get("name") or "mcabyzum").strip()
+    return {"host": host, "port": port, "name": name or "mcabyzum"}
 
 
 def _load_bundled_deploy() -> dict:
@@ -271,7 +277,9 @@ class Api:
         installed = self._is_installed()
         ready = installed and self._inspector().is_ready()
         mods_current = self._mods_are_current() if ready else False
-        fast_ready = ready and mods_current and bool(self._get_forge_launch_version()) and self._login_mod_present()
+        fast_ready = ready and mods_current and bool(self._get_launch_version()) and (
+            self._uses_fabric() or self._login_mod_present()
+        )
         remembered = bool(username) and username.lower() != "player"
         auto_enter = bool(settings.get("auto_enter", True)) and remembered and fast_ready
         return {
@@ -299,6 +307,37 @@ class Api:
     def _mods_are_current(self) -> bool:
         current, _manifest = check_mods_current(appdata_dir(), self.config)
         return current
+
+    def _uses_fabric(self) -> bool:
+        return (self.config.get("mod_loader") or "forge").lower() == "fabric"
+
+    def _get_fabric_launch_version(self) -> str | None:
+        version = self.config["minecraft_version"]
+        loader_version = self.config.get("fabric_loader_version")
+        expected = (
+            f"fabric-loader-{loader_version}-{version}"
+            if loader_version
+            else None
+        )
+        if expected and (minecraft_dir() / "versions" / expected).exists():
+            return expected
+
+        versions_dir = minecraft_dir() / "versions"
+        if not versions_dir.exists():
+            return None
+        matches = [
+            entry.name
+            for entry in versions_dir.iterdir()
+            if entry.is_dir()
+            and entry.name.startswith("fabric-loader-")
+            and entry.name.endswith(f"-{version}")
+        ]
+        return sorted(matches, reverse=True)[0] if matches else None
+
+    def _get_launch_version(self) -> str | None:
+        if self._uses_fabric():
+            return self._get_fabric_launch_version()
+        return self._get_forge_launch_version()
 
     def _get_forge_launch_version(self) -> str | None:
         version = self.config["minecraft_version"]
@@ -336,8 +375,10 @@ class Api:
             return False
         if not self._mods_are_current():
             return False
-        if not self._get_forge_launch_version():
+        if not self._get_launch_version():
             return False
+        if self._uses_fabric():
+            return True
         return self._login_mod_present()
 
     def _resolve_java_path(self, version: str, mc_dir: str) -> str | None:
@@ -474,7 +515,8 @@ class Api:
         )
         self._write_server_lock(mc_dir, server)
 
-        self._emit("mcabyzum:status", {"text": f"Abriendo Forge Abyzum ({username})…"})
+        loader_label = "Fabric abyzumMC" if self._uses_fabric() else "Forge Abyzum"
+        self._emit("mcabyzum:status", {"text": f"Abriendo {loader_label} ({username})…"})
         self._emit("mcabyzum:progress", {"value": 100, "max": 100})
 
         creationflags = 0
@@ -511,12 +553,13 @@ class Api:
                     "mcabyzum:status",
                     {"text": "Minecraft y mods al día — entrando al servidor…"},
                 )
-                launch_version = self._get_forge_launch_version()
+                launch_version = self._get_launch_version()
                 assert launch_version is not None
                 self.config = merge_deploy_config(self.config)
                 server = self.config["server"]
-                write_mod_config(minecraft_dir(), server, auto_join=True)
-                refresh_game_server_config(self.config)
+                if not self._uses_fabric():
+                    write_mod_config(minecraft_dir(), server, auto_join=True)
+                    refresh_game_server_config(self.config)
                 java_path = self._resolve_java_path(version, mc_dir)
                 self._launch_game(
                     launch_version, mc_dir, username, player_uuid, java_path, server
@@ -566,8 +609,20 @@ class Api:
 
             server = self.config["server"]
             forge_version = self.config.get("forge_version")
-            launch_version = self._get_forge_launch_version()
-            if not launch_version:
+            launch_version = self._get_launch_version()
+
+            if self._uses_fabric():
+                if not launch_version:
+                    self._emit("mcabyzum:status", {"text": "Instalando Fabric…"})
+                    launch_version = ensure_fabric(
+                        minecraft_dir(),
+                        version,
+                        fabric_loader_version=self.config.get("fabric_loader_version"),
+                        status=lambda t: self._emit("mcabyzum:status", {"text": t}),
+                        callback=self._callback(),
+                        java=java_path,
+                    )
+            elif not launch_version:
                 self._emit("mcabyzum:status", {"text": "Instalando Forge + login Abyzum…"})
                 launch_version = ensure_forge_and_mod(
                     minecraft_dir(),
@@ -595,37 +650,49 @@ class Api:
             server = self.config["server"]
             version = self.config["minecraft_version"]
             forge_version = self.config.get("forge_version")
-            expected_forge_prefix = f"{version}-forge-"
-            if expected_forge_prefix not in launch_version:
-                self._emit(
-                    "mcabyzum:status",
-                    {"text": f"Reinstalando Forge {forge_version}…"},
-                )
-                launch_version = ensure_forge_and_mod(
+            launch_version = self._get_launch_version()
+
+            if not self._uses_fabric():
+                expected_forge_prefix = f"{version}-forge-"
+                if launch_version and expected_forge_prefix not in launch_version:
+                    self._emit(
+                        "mcabyzum:status",
+                        {"text": f"Reinstalando Forge {forge_version}…"},
+                    )
+                    launch_version = ensure_forge_and_mod(
+                        minecraft_dir(),
+                        version,
+                        ROOT,
+                        server,
+                        status=lambda t: self._emit("mcabyzum:status", {"text": t}),
+                        callback=self._callback(),
+                        java=java_path,
+                        forge_version=forge_version,
+                    )
+
+                if not self._login_mod_present():
+                    launch_version = ensure_forge_and_mod(
+                        minecraft_dir(),
+                        version,
+                        ROOT,
+                        server,
+                        status=lambda t: self._emit("mcabyzum:status", {"text": t}),
+                        callback=self._callback(),
+                        java=java_path,
+                        forge_version=forge_version,
+                    )
+                write_mod_config(minecraft_dir(), server, auto_join=True)
+                refresh_game_server_config(self.config)
+            elif not launch_version:
+                launch_version = ensure_fabric(
                     minecraft_dir(),
                     version,
-                    ROOT,
-                    server,
+                    fabric_loader_version=self.config.get("fabric_loader_version"),
                     status=lambda t: self._emit("mcabyzum:status", {"text": t}),
                     callback=self._callback(),
                     java=java_path,
-                    forge_version=forge_version,
                 )
 
-            if not self._login_mod_present():
-                launch_version = ensure_forge_and_mod(
-                    minecraft_dir(),
-                    version,
-                    ROOT,
-                    server,
-                    status=lambda t: self._emit("mcabyzum:status", {"text": t}),
-                    callback=self._callback(),
-                    java=java_path,
-                    forge_version=forge_version,
-                )
-
-            write_mod_config(minecraft_dir(), server, auto_join=True)
-            refresh_game_server_config(self.config)
             self._launch_game(
                 launch_version, mc_dir, username, player_uuid, java_path, server
             )

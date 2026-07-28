@@ -168,11 +168,27 @@ body {
 }
 
 .hero-version {
-  margin: 0 0 1rem;
+  margin: 0 0 0.35rem;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(1.35rem, 3vw, 1.75rem);
   color: var(--sculk-bright);
+}
+
+.hero-subtitle {
+  margin: 0 0 0.85rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+  color: rgba(231, 243, 241, 0.92);
+}
+
+.page.horizons .hero-veil {
+  background: linear-gradient(120deg, rgba(18, 8, 40, 0.72), rgba(8, 24, 48, 0.55));
+}
+
+.page.horizons .hero-version {
+  color: #c4b5fd;
 }
 
 .lede {

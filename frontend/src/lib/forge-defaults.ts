@@ -36,6 +36,10 @@ export function applyForge119Defaults(config: Partial<ServerConfig>): ServerConf
     merged.onlineMode = false;
     merged.minecraftVersion = FORGE_119_PROFILE.minecraftVersion;
     merged.forgeBuild = merged.forgeBuild || FORGE_119_PROFILE.forgeBuild;
+    merged.modrinthLoader = merged.modrinthLoader || FORGE_119_PROFILE.modrinthLoader;
+    if (merged.modrinthProjects?.trim()) {
+      merged.modrinthDownloadDependencies = 'required';
+    }
   }
   return merged;
 }

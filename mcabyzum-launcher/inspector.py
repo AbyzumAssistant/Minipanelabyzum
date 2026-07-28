@@ -1,5 +1,5 @@
 """
-MCABYZUM error inspector + auto-repair for the locked 1.19 client.
+MCABYZUM error inspector + auto-repair for the locked Horizons 1.20.1 client.
 """
 from __future__ import annotations
 
@@ -41,8 +41,14 @@ class InspectReport:
         }
 
 
-ALLOWED_VERSION_PREFIXES = ("1.19",)  # keep only Wild Update line we own
-LOCKED_CLIENT_VERSION = "1.19.2"
+LOCKED_CLIENT_VERSION = "1.20.1"
+
+
+def _major_minor(version: str) -> str:
+    parts = version.strip().split(".")
+    if len(parts) >= 2:
+        return f"{parts[0]}.{parts[1]}"
+    return version.strip()
 
 
 def _dir_size_mb(path: Path) -> float:
@@ -101,6 +107,7 @@ class GameInspector:
     def __init__(self, mc_dir: Path, target_version: str = LOCKED_CLIENT_VERSION):
         self.mc_dir = Path(mc_dir)
         self.target_version = target_version.strip()
+        self.major_minor = _major_minor(self.target_version)
         self.versions_dir = self.mc_dir / "versions"
         self.libraries_dir = self.mc_dir / "libraries"
         self.assets_dir = self.mc_dir / "assets"
@@ -109,14 +116,23 @@ class GameInspector:
     def _is_allowed_version(self, name: str) -> bool:
         if name == self.target_version:
             return True
+        lower = name.lower()
         forge_prefix = f"{self.target_version.lower()}-forge-"
-        return name.lower().startswith(forge_prefix)
+        if lower.startswith(forge_prefix):
+            return True
+        if lower.startswith("fabric-loader-") and name.endswith(f"-{self.target_version}"):
+            return True
+        return False
 
     def _is_wrong_version(self, name: str) -> bool:
         if self._is_allowed_version(name):
             return False
         lower = name.lower()
         if lower.startswith("1.19") or "forge" in lower:
+            return True
+        if lower.startswith("fabric-loader-") and not name.endswith(f"-{self.target_version}"):
+            return True
+        if lower and lower[0].isdigit() and not lower.startswith(self.major_minor):
             return True
         return False
 
@@ -146,7 +162,7 @@ class GameInspector:
                     continue
                 severity = "error" if self._is_wrong_version(name) else "warn"
                 message = (
-                    f"Versión incorrecta detectada ({name}) — se quitará e instalará {self.target_version} Forge."
+                    f"Versión incorrecta detectada ({name}) — se quitará e instalará {self.target_version}."
                     if self._is_wrong_version(name)
                     else f"Versión conflictiva detectada: {name}"
                 )
@@ -202,7 +218,7 @@ class GameInspector:
                             Issue(
                                 "bad_json_id",
                                 "error",
-                                "El JSON de versión no coincide con 1.19.",
+                                f"El JSON de versión no coincide con {self.target_version}.",
                                 True,
                                 str(meta),
                             )

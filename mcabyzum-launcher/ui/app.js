@@ -88,7 +88,11 @@ async function startEnter(name) {
     usernameInput.focus();
     return;
   }
-  setBusy(true, boot?.fastReady ? `Entrando como ${nick}…` : "Inspeccionando / preparando 1.19.2…");
+  const version = boot?.version || "1.20.1";
+  setBusy(
+    true,
+    boot?.fastReady ? `Entrando como ${nick}…` : `Inspeccionando / preparando ${version}…`,
+  );
   barFill.style.width = "8%";
   inspectLog.hidden = true;
   try {
@@ -141,7 +145,11 @@ window.addEventListener("pywebviewready", async () => {
     apiReady = true;
     boot = await api.get_bootstrap();
     versionPill.textContent = boot.version;
-    serverPill.textContent = boot.serverHost;
+    serverPill.textContent = boot.serverName || boot.serverHost;
+    const mcTitle = document.getElementById("mc-title");
+    if (mcTitle) {
+      mcTitle.textContent = `Minecraft ${boot.version} · Horizons`;
+    }
     usernameInput.value = boot.username || "Player";
     document.title = boot.appName || "MCABYZUM";
 
@@ -151,7 +159,7 @@ window.addEventListener("pywebviewready", async () => {
         ? `Bienvenido de nuevo, ${boot.username}. Entrando directo al servidor.`
         : boot.ready
           ? `Hola ${boot.username}. Sincronizando mods del panel…`
-          : `Hola ${boot.username}. Preparando Minecraft 1.19.2…`;
+          : `Hola ${boot.username}. Preparando Minecraft ${boot.version}…`;
     }
 
     if (boot.autoEnter && !autoStarted) {

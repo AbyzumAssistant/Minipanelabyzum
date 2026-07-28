@@ -103,6 +103,26 @@ export interface ModDeployManifest {
     name: string;
     required: boolean;
   };
+  resourcePacks?: Array<{
+    fileName: string;
+    downloadUrl: string;
+    sha1?: string;
+    name: string;
+  }>;
+  configFiles?: Array<{
+    path: string;
+    fileName: string;
+    downloadUrl: string;
+    sha1?: string;
+    kind: string;
+  }>;
+  shaderPackNote?: string;
+  shaderPackUrl?: string;
+  profile?: 'forge119' | 'horizons' | 'modpack';
+  modpackSlug?: string;
+  modpackTitle?: string;
+  modpackVersion?: string;
+  fabricLoaderVersion?: string;
   lockClientResourcePacks: boolean;
   launcherRevision?: number;
   forgeBuild?: string;
@@ -183,6 +203,47 @@ export const saveDeployManifest = async (
   const { data } = await api.put<ModDeployManifest>(`/modrinth/deploy/${serverId}/manifest`, payload, {
     timeout: CATALOG_TIMEOUT,
   });
+  return data;
+};
+
+export interface ServerModSyncResult {
+  synced: boolean;
+  modCount: number;
+  modrinthProjects: string;
+  dependencies: string[];
+}
+
+export const syncServerModsFromManifest = async (serverId: string): Promise<ServerModSyncResult> => {
+  const { data } = await api.post<ServerModSyncResult>(`/modrinth/deploy/${serverId}/server/sync`, {}, {
+    timeout: CATALOG_TIMEOUT,
+  });
+  return data;
+};
+
+export const getModpackInfo = async (slug: string) => {
+  const { data } = await api.get(`/modrinth/modpack/${encodeURIComponent(slug)}/info`, {
+    timeout: CATALOG_TIMEOUT,
+  });
+  return data;
+};
+
+export const publishModpackDeploy = async (
+  serverId: string,
+  payload: {
+    slug: string;
+    versionId?: string;
+    serverHost: string;
+    serverPort: number;
+    serverName: string;
+    lockClientResourcePacks?: boolean;
+    profile?: 'horizons' | 'modpack' | 'forge119';
+  },
+): Promise<ModDeployManifest> => {
+  const { data } = await api.post<ModDeployManifest>(
+    `/modrinth/deploy/${serverId}/modpack/publish`,
+    payload,
+    { timeout: 300000 },
+  );
   return data;
 };
 

@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestj
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import * as archiver from 'archiver';
+import AdmZip from 'adm-zip';
 import * as fs from 'fs/promises';
 import { createReadStream, createWriteStream } from 'fs';
 import * as path from 'path';
@@ -82,6 +83,14 @@ export interface LauncherBuildStatus {
   fileSize?: number;
 }
 
+export interface ModpackAssetFile {
+  path: string;
+  fileName: string;
+  downloadUrl: string;
+  sha1?: string;
+  kind: 'mod' | 'resourcepack' | 'shaderpack' | 'config' | 'other';
+}
+
 export interface ModDeployManifest {
   serverId: string;
   gameVersion: string;
@@ -95,6 +104,20 @@ export interface ModDeployManifest {
     name: string;
     required: boolean;
   };
+  resourcePacks?: Array<{
+    fileName: string;
+    downloadUrl: string;
+    sha1?: string;
+    name: string;
+  }>;
+  configFiles?: ModpackAssetFile[];
+  shaderPackNote?: string;
+  shaderPackUrl?: string;
+  profile?: 'forge119' | 'horizons' | 'modpack';
+  modpackSlug?: string;
+  modpackTitle?: string;
+  modpackVersion?: string;
+  fabricLoaderVersion?: string;
   lockClientResourcePacks: boolean;
   launcherRevision?: number;
   forgeBuild?: string;
@@ -250,8 +273,27 @@ interface ModrinthVersion {
   project_id: string;
   name: string;
   version_number: string;
+  game_versions: string[];
+  loaders: string[];
   files: ModrinthVersionFile[];
   dependencies: ModrinthVersionDependency[];
+}
+
+interface MrpackIndexFile {
+  path: string;
+  hashes?: { sha1?: string; sha512?: string };
+  env?: { client?: string; server?: string };
+  downloads?: string[];
+}
+
+interface MrpackIndex {
+  formatVersion: number;
+  game: string;
+  versionId: string;
+  name: string;
+  summary?: string;
+  dependencies?: Record<string, string>;
+  files: MrpackIndexFile[];
 }
 
 @Injectable()
@@ -676,13 +718,36 @@ export class ModrinthService {
     requireResourcePack?: boolean;
     lockClientResourcePacks?: boolean;
   }): Promise<ModDeployManifest> {
+    const existing = await this.getDeployManifest(input.serverId);
+    const nextRevision = (existing?.launcherRevision ?? 0) + 1;
+
+    if (existing?.modpackSlug && existing.mods.length > 0) {
+      return this.saveDeployManifest({
+        ...existing,
+        updatedAt: new Date().toISOString(),
+        launcherRevision: nextRevision,
+        lockClientResourcePacks: input.lockClientResourcePacks ?? existing.lockClientResourcePacks,
+        server: {
+          host: this.resolveConnectHost(input.serverHost),
+          port: input.serverPort,
+          name: input.serverName,
+        },
+        resourcePack:
+          input.resourcePackUrl
+            ? {
+                url: input.resourcePackUrl,
+                sha1: input.resourcePackSha1,
+                name: input.resourcePackName ?? 'Resource pack del servidor',
+                required: input.requireResourcePack ?? true,
+              }
+            : existing.resourcePack,
+      });
+    }
+
     const slugs = [...new Set(input.slugs.map((s) => s.trim().toLowerCase()).filter(Boolean))];
     if (slugs.length === 0) {
       throw new HttpException('Se requiere al menos un mod para sincronizar el launcher', HttpStatus.BAD_REQUEST);
     }
-
-    const existing = await this.getDeployManifest(input.serverId);
-    const nextRevision = (existing?.launcherRevision ?? 0) + 1;
 
     const resolved = await this.resolveModsWithDependencies({ slugs });
 
@@ -1274,24 +1339,35 @@ export class ModrinthService {
     manifest: NonNullable<Awaited<ReturnType<typeof this.getDeployManifest>>>,
     panelUrl?: string,
   ): Record<string, unknown> {
-    const gameVersion = manifest.gameVersion || '1.19.2';
+    const gameVersion = manifest.gameVersion || '1.20.1';
     const forgeBuild = manifest.forgeBuild || '43.3.0';
+    const loader = manifest.loader || 'forge';
     const connectHost = this.resolveLauncherConnectHost(manifest);
     const connectPort = manifest.server?.port ?? 25569;
+    const isFabric = loader === 'fabric';
+    const ramProfile = manifest.profile === 'horizons'
+      ? { min_ram_mb: 6144, max_ram_mb: 10240 }
+      : { min_ram_mb: 2048, max_ram_mb: 4096 };
+
     return {
       app_name: 'MCABYZUM',
       brand: 'abyzum',
       minecraft_version: gameVersion,
-      mod_loader: 'forge',
-      forge_version: `${gameVersion}-${forgeBuild}`,
+      mod_loader: loader,
+      forge_version: isFabric ? undefined : `${gameVersion}-${forgeBuild}`,
+      fabric_loader_version: isFabric ? manifest.fabricLoaderVersion : undefined,
       panel_server_id: serverId,
       backend_url: this.resolvePublicBackendUrl(panelUrl),
+      profile: manifest.profile,
+      modpack_title: manifest.modpackTitle,
+      shader_pack_url: manifest.shaderPackUrl,
+      shader_pack_note: manifest.shaderPackNote,
       server: {
         host: connectHost,
         port: connectPort,
-        name: manifest.server?.name || 'Abyzum Server',
+        name: manifest.server?.name || 'mcabyzum',
       },
-      java: { min_ram_mb: 2048, max_ram_mb: 4096 },
+      java: ramProfile,
       offline_default_name: 'Player',
       launcherRevision: manifest.launcherRevision ?? 0,
       builtAt: new Date().toISOString(),
@@ -1415,5 +1491,254 @@ export class ModrinthService {
       stream: createReadStream(exePath),
       name: path.basename(exePath),
     };
+  }
+
+  async getModpackInfo(slug: string) {
+    const project = await this.fetchProject(slug);
+    if (!project) {
+      throw new NotFoundException(`Modpack no encontrado: ${slug}`);
+    }
+
+    const response = await this.apiClient.get<ModrinthVersion[]>(`/project/${project.id}/version`, {
+      params: { loaders: JSON.stringify(['fabric', 'forge', 'quilt', 'neoforge']) },
+    });
+
+    const latest = response.data.find((v) => v.version_number) ?? response.data[0];
+    return {
+      slug: project.slug,
+      title: project.title,
+      description: project.description,
+      iconUrl: project.icon_url,
+      gameVersions: latest?.game_versions ?? [],
+      loaders: latest?.loaders ?? [],
+      latestVersion: latest
+        ? { id: latest.id, number: latest.version_number, name: latest.name }
+        : null,
+    };
+  }
+
+  private clientSideAllowed(env?: { client?: string; server?: string }): boolean {
+    const side = env?.client ?? 'required';
+    return side !== 'unsupported';
+  }
+
+  private classifyModpackPath(relativePath: string): ModpackAssetFile['kind'] {
+    const normalized = relativePath.replace(/\\/g, '/').toLowerCase();
+    if (normalized.startsWith('mods/')) return 'mod';
+    if (normalized.startsWith('resourcepacks/') || normalized.startsWith('resource-packs/')) {
+      return 'resourcepack';
+    }
+    if (normalized.startsWith('shaderpacks/') || normalized.startsWith('shader-packs/')) {
+      return 'shaderpack';
+    }
+    if (normalized.startsWith('config/')) return 'config';
+    return 'other';
+  }
+
+  private async parseMrpackIndex(mrpackUrl: string): Promise<MrpackIndex> {
+    const response = await axios.get<ArrayBuffer>(mrpackUrl, {
+      responseType: 'arraybuffer',
+      timeout: 180000,
+    });
+    const zip = new AdmZip(Buffer.from(response.data));
+    const entry =
+      zip.getEntry('modrinth.index.json') ??
+      zip.getEntry('index.json') ??
+      zip.getEntries().find((item) => item.entryName.endsWith('index.json'));
+
+    if (!entry) {
+      throw new HttpException('El archivo .mrpack no contiene índice válido', HttpStatus.BAD_REQUEST);
+    }
+
+    return JSON.parse(entry.getData().toString('utf-8')) as MrpackIndex;
+  }
+
+  async resolveModpack(input: { slug: string; versionId?: string }) {
+    const slug = input.slug.trim().toLowerCase();
+    const project = await this.fetchProject(slug);
+    if (!project) {
+      throw new NotFoundException(`Modpack no encontrado: ${slug}`);
+    }
+
+    let version: ModrinthVersion | null = null;
+    if (input.versionId) {
+      version = await this.fetchVersion(input.versionId);
+    } else {
+      const response = await this.apiClient.get<ModrinthVersion[]>(`/project/${project.id}/version`);
+      version =
+        response.data.find((entry) => entry.version_number) ??
+        response.data[0] ??
+        null;
+    }
+
+    if (!version) {
+      throw new HttpException('No se encontró una versión publicada del modpack', HttpStatus.BAD_REQUEST);
+    }
+
+    const mrpackFile =
+      version.files.find((file) => file.filename.endsWith('.mrpack')) ??
+      version.files.find((file) => file.primary) ??
+      version.files[0];
+
+    if (!mrpackFile) {
+      throw new HttpException('La versión del modpack no incluye archivo .mrpack', HttpStatus.BAD_REQUEST);
+    }
+
+    const index = await this.parseMrpackIndex(mrpackFile.url);
+    const gameVersion =
+      index.dependencies?.minecraft ??
+      version.game_versions[0] ??
+      '1.20.1';
+
+    const loader =
+      version.loaders.find((entry) => this.KNOWN_LOADERS.includes(entry)) ??
+      (index.dependencies?.['fabric-loader'] ? 'fabric' : 'forge');
+
+    const fabricLoaderVersion = index.dependencies?.['fabric-loader'];
+
+    const mods: ModrinthResolvedMod[] = [];
+    const resourcePacks: NonNullable<ModDeployManifest['resourcePacks']> = [];
+    const configFiles: ModpackAssetFile[] = [];
+    let shaderCount = 0;
+
+    for (const file of index.files ?? []) {
+      if (!this.clientSideAllowed(file.env)) continue;
+      const downloadUrl = file.downloads?.[0];
+      if (!downloadUrl) continue;
+
+      const kind = this.classifyModpackPath(file.path);
+      const fileName = path.basename(file.path.replace(/\\/g, '/'));
+      const sha1 = file.hashes?.sha1 ?? '';
+
+      if (kind === 'mod') {
+        mods.push({
+          projectId: `${slug}:${fileName}`,
+          slug: fileName.replace(/\.jar$/i, ''),
+          name: fileName,
+          versionId: version.id,
+          versionNumber: version.version_number,
+          fileName,
+          downloadUrl,
+          fileSize: 0,
+          sha1,
+          isDependency: false,
+        });
+        continue;
+      }
+
+      if (kind === 'resourcepack') {
+        resourcePacks.push({
+          fileName,
+          downloadUrl,
+          sha1,
+          name: fileName.replace(/\.zip$/i, ''),
+        });
+        continue;
+      }
+
+      if (kind === 'shaderpack') {
+        shaderCount += 1;
+        resourcePacks.push({
+          fileName,
+          downloadUrl,
+          sha1,
+          name: fileName,
+        });
+        continue;
+      }
+
+      if (kind === 'config') {
+        configFiles.push({
+          path: file.path.replace(/\\/g, '/'),
+          fileName,
+          downloadUrl,
+          sha1,
+          kind,
+        });
+      }
+    }
+
+    const primaryResourcePack = resourcePacks.find((pack) => pack.fileName.toLowerCase().endsWith('.zip'));
+
+    return {
+      project,
+      version,
+      index,
+      gameVersion,
+      loader,
+      fabricLoaderVersion,
+      mods,
+      resourcePacks,
+      primaryResourcePack,
+      configFiles,
+      shaderCount,
+      modrinthModpack: `${slug}:${version.version_number}`,
+    };
+  }
+
+  async publishModpackDeploy(input: {
+    serverId: string;
+    slug: string;
+    versionId?: string;
+    serverHost: string;
+    serverPort: number;
+    serverName: string;
+    lockClientResourcePacks?: boolean;
+    profile?: ModDeployManifest['profile'];
+  }): Promise<ModDeployManifest> {
+    const resolved = await this.resolveModpack({
+      slug: input.slug,
+      versionId: input.versionId,
+    });
+
+    const existing = await this.getDeployManifest(input.serverId);
+    const nextRevision = (existing?.launcherRevision ?? 0) + 1;
+    const profile =
+      input.profile ??
+      (input.slug === 'horizons1' ? 'horizons' : 'modpack');
+
+    const shaderPackUrl =
+      profile === 'horizons'
+        ? 'https://gist.github.com/Steveplays28/52db568f297ded527da56dbe6deeec0e'
+        : undefined;
+    const shaderPackNote =
+      profile === 'horizons'
+        ? 'Los shaders Bliss compatibles con Distant Horizons no vienen en Modrinth. Descárgalos desde el enlace e instálalos en shaderpacks/.'
+        : undefined;
+
+    const manifest = await this.saveDeployManifest({
+      serverId: input.serverId,
+      gameVersion: resolved.gameVersion,
+      loader: resolved.loader,
+      updatedAt: new Date().toISOString(),
+      mods: resolved.mods,
+      modrinthProjects: resolved.mods.map((mod) => `${mod.slug}:${mod.versionNumber}`).join(','),
+      resourcePacks: resolved.resourcePacks,
+      resourcePack: resolved.primaryResourcePack
+        ? {
+            url: resolved.primaryResourcePack.downloadUrl,
+            sha1: resolved.primaryResourcePack.sha1,
+            name: resolved.primaryResourcePack.name,
+            required: true,
+          }
+        : undefined,
+      configFiles: resolved.configFiles,
+      shaderPackUrl,
+      shaderPackNote,
+      profile,
+      modpackSlug: resolved.project.slug,
+      modpackTitle: resolved.project.title,
+      modpackVersion: resolved.version.version_number,
+      fabricLoaderVersion: resolved.fabricLoaderVersion,
+      lockClientResourcePacks: input.lockClientResourcePacks ?? true,
+      launcherRevision: nextRevision,
+      server: {
+        host: this.resolveConnectHost(input.serverHost),
+        port: input.serverPort,
+        name: input.serverName,
+      },
+    });
+
+    return manifest;
   }
 }

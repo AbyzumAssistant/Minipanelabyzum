@@ -965,7 +965,12 @@ export class DockerComposeService {
 
   private applyForgeConnectivityDefaults(config: ServerConfig): ServerConfig {
     if (config.serverType === 'FORGE' || config.modrinthLoader === 'forge') {
-      return { ...config, onlineMode: false };
+      const next = { ...config, onlineMode: false };
+      if (next.modrinthProjects?.trim()) {
+        next.modrinthDownloadDependencies = 'required';
+        next.modrinthLoader = next.modrinthLoader || 'forge';
+      }
+      return next;
     }
     return config;
   }

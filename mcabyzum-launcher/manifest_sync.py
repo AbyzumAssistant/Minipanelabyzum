@@ -40,8 +40,8 @@ def _normalize_server(server: dict, fallback: dict | None = None) -> dict:
     except (TypeError, ValueError):
         port = DEFAULT_SERVER_PORT
 
-    name = (current.get("name") or backup.get("name") or "Abyzum Server").strip()
-    return {"host": host, "port": port, "name": name or "Abyzum Server"}
+    name = (current.get("name") or backup.get("name") or "mcabyzum").strip()
+    return {"host": host, "port": port, "name": name or "mcabyzum"}
 
 
 def manifest_url(backend_url: str, server_id: str) -> str:
@@ -167,23 +167,74 @@ def sync_mods(mc_dir: Path, manifest: dict, status: StatusFn | None = None) -> N
 
 
 def sync_resource_pack(mc_dir: Path, manifest: dict, status: StatusFn | None = None) -> None:
-    pack = manifest.get("resourcePack") or {}
-    url = pack.get("url")
-    if not url:
-        return
-
     packs_dir = mc_dir / "resourcepacks"
     packs_dir.mkdir(parents=True, exist_ok=True)
-    file_name = _safe_filename(pack.get("name") or "server-pack")
-    dest = packs_dir / file_name
 
-    expected_sha1 = (pack.get("sha1") or "").lower()
-    if dest.exists() and expected_sha1 and _sha1_file(dest).lower() == expected_sha1:
-        return
+    packs = list(manifest.get("resourcePacks") or [])
+    primary = manifest.get("resourcePack") or {}
+    if primary.get("url"):
+        packs.append(
+            {
+                "fileName": _safe_filename(primary.get("name") or "server-pack"),
+                "downloadUrl": primary["url"],
+                "sha1": primary.get("sha1"),
+                "name": primary.get("name") or "server-pack",
+            }
+        )
 
-    if status:
-        status("Descargando resource pack del servidor…")
-    _download(url, dest)
+    keep_names: set[str] = set()
+    for pack in packs:
+        download_url = pack.get("downloadUrl")
+        if not download_url:
+            continue
+        file_name = _safe_filename(pack.get("fileName") or pack.get("name") or "resourcepack")
+        keep_names.add(file_name)
+        dest = packs_dir / file_name
+        expected_sha1 = (pack.get("sha1") or "").lower()
+        if dest.exists() and expected_sha1 and _sha1_file(dest).lower() == expected_sha1:
+            continue
+        if status:
+            status(f"Descargando resource pack {pack.get('name', file_name)}…")
+        _download(download_url, dest)
+
+
+def sync_shader_packs(mc_dir: Path, manifest: dict, status: StatusFn | None = None) -> None:
+    packs_dir = mc_dir / "shaderpacks"
+    packs_dir.mkdir(parents=True, exist_ok=True)
+
+    for pack in manifest.get("resourcePacks") or []:
+        file_name = pack.get("fileName") or ""
+        if not file_name.lower().endswith((".zip", ".zip.txt")):
+            continue
+        lower = file_name.lower()
+        if "shader" not in lower and not lower.startswith("bliss"):
+            continue
+        download_url = pack.get("downloadUrl")
+        if not download_url:
+            continue
+        dest = packs_dir / Path(file_name).name
+        expected_sha1 = (pack.get("sha1") or "").lower()
+        if dest.exists() and expected_sha1 and _sha1_file(dest).lower() == expected_sha1:
+            continue
+        if status:
+            status(f"Descargando shader pack {file_name}…")
+        _download(download_url, dest)
+
+
+def sync_config_files(mc_dir: Path, manifest: dict, status: StatusFn | None = None) -> None:
+    for entry in manifest.get("configFiles") or []:
+        relative_path = (entry.get("path") or entry.get("fileName") or "").replace("\\", "/")
+        download_url = entry.get("downloadUrl")
+        if not relative_path or not download_url:
+            continue
+        dest = mc_dir / relative_path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        expected_sha1 = (entry.get("sha1") or "").lower()
+        if dest.exists() and expected_sha1 and _sha1_file(dest).lower() == expected_sha1:
+            continue
+        if status:
+            status(f"Sincronizando config {Path(relative_path).name}…")
+        _download(download_url, dest)
 
 
 def apply_server_from_manifest(
@@ -209,8 +260,14 @@ def apply_server_from_manifest(
         merged["minecraft_version"] = manifest["gameVersion"]
     if manifest.get("forgeBuild"):
         merged["forge_build_hint"] = manifest["forgeBuild"]
-        game_version = merged.get("minecraft_version") or manifest.get("gameVersion") or "1.19.2"
+        game_version = merged.get("minecraft_version") or manifest.get("gameVersion") or "1.20.1"
         merged["forge_version"] = f"{game_version}-{manifest['forgeBuild']}"
+    if manifest.get("fabricLoaderVersion"):
+        merged["fabric_loader_version"] = manifest["fabricLoaderVersion"]
+    if manifest.get("loader"):
+        merged["mod_loader"] = manifest["loader"]
+    if manifest.get("profile"):
+        merged["profile"] = manifest["profile"]
 
     if mc_dir is not None:
         from forge_setup import write_mod_config
@@ -255,6 +312,8 @@ def sync_from_panel(
 
     sync_mods(mc_dir, manifest, status=status)
     sync_resource_pack(mc_dir, manifest, status=status)
+    sync_shader_packs(mc_dir, manifest, status=status)
+    sync_config_files(mc_dir, manifest, status=status)
     save_local_state(app_dir, manifest)
 
     if status:

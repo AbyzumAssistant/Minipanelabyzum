@@ -21,6 +21,7 @@ import {
   type ModSelectionReport,
   type ForgeCatalogCategoryMeta,
 } from '@/services/mods/mod-deploy.service';
+import { apiRestartServer, getServerStatus } from '@/services/docker/fetchs';
 import type { ServerConfig } from '@/lib/types/types';
 
 interface Forge119ModsCatalogProps {
@@ -273,6 +274,11 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
         resourcePackUrl: config.resourcePackUrl,
         resourcePackSha1: config.resourcePackSha1,
       });
+
+      const { status } = await getServerStatus(serverId);
+      if (status === 'running' || status === 'restarting') {
+        await apiRestartServer(serverId);
+      }
 
       const depCount = resolved.mods.filter((m) => m.isDependency).length;
       const rootCount = resolved.mods.filter((m) => !m.isDependency).length;

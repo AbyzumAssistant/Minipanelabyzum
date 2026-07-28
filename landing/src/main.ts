@@ -12,6 +12,19 @@ interface DeployManifest {
   forgeBuild?: string;
   server?: LauncherServer;
   launcherRevision?: number;
+  profile?: 'forge119' | 'horizons' | 'modpack';
+  modpackTitle?: string;
+  modpackVersion?: string;
+  shaderPackNote?: string;
+  shaderPackUrl?: string;
+  resourcePacks?: Array<{ fileName: string; downloadUrl: string; sha1?: string; name: string }>;
+}
+
+interface LandingProfile {
+  navSecondary: string;
+  lede: string;
+  subtitle: string;
+  pageClass: string;
 }
 
 interface LandingState {
@@ -19,6 +32,7 @@ interface LandingState {
   manifest: DeployManifest | null;
   versionLabel: string;
   serverAddress: string;
+  profile: LandingProfile;
 }
 
 function resolveServerId(): string {
@@ -66,13 +80,39 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function formatVersionLabel(version: string): string {
+function formatVersionLabel(manifest: DeployManifest | null): string {
+  const version = manifest?.gameVersion ?? '1.20.1';
   const majorMinor = version.match(/^(\d+\.\d+)/)?.[1];
-  return majorMinor ? `Minecraft ${majorMinor}` : `Minecraft ${version}`;
+  const base = majorMinor ? `Minecraft ${majorMinor}` : `Minecraft ${version}`;
+
+  if (manifest?.profile === 'horizons') {
+    const packVersion = manifest.modpackVersion ? ` · v${manifest.modpackVersion}` : '';
+    return `${base} · Horizons${packVersion}`;
+  }
+
+  return base;
+}
+
+function resolveLandingProfile(manifest: DeployManifest | null): LandingProfile {
+  if (manifest?.profile === 'horizons') {
+    return {
+      navSecondary: 'Horizons',
+      subtitle: manifest.modpackTitle ? `${manifest.modpackTitle} en abyzumMC` : 'Horizons en abyzumMC',
+      lede:
+        'Modpack Horizons con Distant Horizons, Terralith, Iris y bosses épicos. Descarga el launcher abyzum con mods, resource packs y configs incluidos. Shaders Bliss aparte.',
+      pageClass: 'horizons',
+    };
+  }
+
+  return {
+    navSecondary: 'The Wild',
+    subtitle: 'Solo The Wild Update',
+    lede: 'Solo The Wild Update. Sin otras versiones. Deep Dark, manglares y el silencio del Warden.',
+    pageClass: 'wild',
+  };
 }
 
 function buildState(manifest: DeployManifest | null, serverId: string): LandingState {
-  const version = manifest?.gameVersion ?? '1.19.2';
   const host = manifest?.server?.host ?? '';
   const port = manifest?.server?.port;
   const serverAddress = host && port ? `${host}:${port}` : '';
@@ -80,8 +120,9 @@ function buildState(manifest: DeployManifest | null, serverId: string): LandingS
   return {
     serverId,
     manifest,
-    versionLabel: formatVersionLabel(version),
+    versionLabel: formatVersionLabel(manifest),
     serverAddress,
+    profile: resolveLandingProfile(manifest),
   };
 }
 
@@ -104,7 +145,7 @@ async function copyText(text: string): Promise<boolean> {
 
 function renderLanding(root: HTMLElement, state: LandingState): void {
   root.innerHTML = `
-    <div class="page">
+    <div class="page ${escapeHtml(state.profile.pageClass)}">
       <div class="noise" aria-hidden="true"></div>
 
       <header class="topbar">
@@ -114,7 +155,7 @@ function renderLanding(root: HTMLElement, state: LandingState): void {
         </a>
         <nav class="topnav" aria-label="Principal">
           <a href="#instancia" id="nav-instancia">Instancia</a>
-          <a href="#wild" id="nav-wild">The Wild</a>
+          <a href="#wild" id="nav-wild">${escapeHtml(state.profile.navSecondary)}</a>
           <a href="#" id="nav-lanzar">Lanzar</a>
         </nav>
       </header>
@@ -128,11 +169,12 @@ function renderLanding(root: HTMLElement, state: LandingState): void {
         <div class="hero-copy">
           <h1 class="brand-lockup anim-fade-up" style="--delay: 0.12s">abyzum</h1>
           <p class="hero-version anim-fade-up" style="--delay: 0.22s" id="hero-version">${escapeHtml(state.versionLabel)}</p>
+          <p class="hero-subtitle anim-fade-up" style="--delay: 0.28s">${escapeHtml(state.profile.subtitle)}</p>
           <p class="lede anim-fade-up" style="--delay: 0.32s" id="wild">
-            Solo The Wild Update. Sin otras versiones. Deep Dark, manglares y el silencio del Warden.
+            ${escapeHtml(state.profile.lede)}
           </p>
           <div class="cta-row anim-fade-up" style="--delay: 0.42s">
-            <button class="btn btn-primary" id="download-btn" type="button">Descargar</button>
+            <button class="btn btn-primary" id="download-btn" type="button">Descargar abyzumMC</button>
           </div>
           <p class="status-line" id="status-line" role="status" aria-live="polite"></p>
         </div>
@@ -164,7 +206,7 @@ function bindLandingActions(state: LandingState): void {
 
     window.setTimeout(() => {
       downloadBtn.disabled = false;
-      downloadBtn.textContent = 'Descargar';
+      downloadBtn.textContent = 'Descargar abyzumMC';
       setStatus(
         state.serverAddress
           ? `Descarga iniciada. Servidor: ${state.serverAddress}`
@@ -192,13 +234,15 @@ function bindLandingActions(state: LandingState): void {
     document.getElementById('wild')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 
-  if (state.serverAddress) {
-    setStatus(`Instancia lista · ${state.serverAddress}`);
+  if (state.manifest?.shaderPackNote) {
+    setStatus(state.manifest.shaderPackNote);
+  } else if (state.serverAddress) {
+    setStatus(`Instancia abyzumMC lista · ${state.serverAddress}`);
   }
 }
 
 function renderLoading(root: HTMLElement): void {
-  root.innerHTML = '<div class="loading-shell">Cargando abyzum</div>';
+  root.innerHTML = '<div class="loading-shell">Cargando abyzumMC</div>';
 }
 
 async function boot(): Promise<void> {
@@ -215,6 +259,8 @@ async function boot(): Promise<void> {
   } catch {
     manifest = null;
   }
+
+  document.title = manifest?.profile === 'horizons' ? 'abyzumMC · Horizons' : 'abyzumMC · Minecraft 1.20.1';
 
   const state = buildState(manifest, serverId);
   renderLanding(root, state);

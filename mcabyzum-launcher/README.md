@@ -1,6 +1,6 @@
 # MCABYZUM Launcher (Windows)
 
-Instalador Forge 1.19 con interfaz pywebview. Descarga Java, Minecraft, Forge, mods del panel e IP del servidor.
+Instalador Fabric 1.20.1 (Horizons) con interfaz pywebview. Descarga Java, Minecraft, Fabric, mods del panel e IP del servidor mcabyzum.
 
 ## Reconstruir el .exe (solo Windows)
 

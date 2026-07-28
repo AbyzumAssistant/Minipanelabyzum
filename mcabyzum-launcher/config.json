@@ -1,19 +1,20 @@
 {
   "app_name": "MCABYZUM",
   "brand": "abyzum",
-  "minecraft_version": "1.19.2",
-  "mod_loader": "forge",
-  "forge_version": "1.19.2-43.3.0",
+  "minecraft_version": "1.20.1",
+  "mod_loader": "fabric",
+  "profile": "horizons",
+  "modpack_title": "Horizons",
   "panel_server_id": "mcabyzum",
   "backend_url": "https://mc.abyzum.com/api/backend",
   "server": {
     "host": "65.75.202.124",
     "port": 25569,
-    "name": "Abyzum Server"
+    "name": "mcabyzum"
   },
   "java": {
-    "min_ram_mb": 2048,
-    "max_ram_mb": 4096
+    "min_ram_mb": 6144,
+    "max_ram_mb": 10240
   },
   "offline_default_name": "Player"
 }

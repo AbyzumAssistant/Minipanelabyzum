@@ -1,5 +1,6 @@
 import { ServerConfig, ServerEdition } from "./types/types.d";
 import { FORGE_119_PROFILE } from "./forge-defaults";
+import { HORIZONS_PROFILE } from "./horizons-defaults";
 
 export interface ServerTemplate {
   id: string;
@@ -19,6 +20,14 @@ export const serverTemplates: ServerTemplate[] = [
     icon: "anvil",
     color: "emerald",
     config: { ...FORGE_119_PROFILE },
+  },
+  {
+    id: "horizons-abyzum",
+    name: "horizonsAbyzum",
+    description: "horizonsAbyzumDesc",
+    icon: "globe",
+    color: "violet",
+    config: { ...HORIZONS_PROFILE },
   },
 ];
 

@@ -1,17 +1,58 @@
-import { Body, Controller, Get, Param, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { Public } from '../auth/decorators/public.decorator';
-import { ModrinthService } from './modrinth.service';
+import { DockerComposeService } from '../docker-compose/docker-compose.service';
+import { ModrinthService, ModDeployManifest } from './modrinth.service';
 import { SearchModrinthModsQueryDto } from './dto/search-mods.query.dto';
 import { ResolveModsDto, SaveDeployManifestDto, SyncLauncherManifestDto } from './dto/resolve-mods.dto';
+import { PublishModpackDto } from './dto/publish-modpack.dto';
 import { BuildPluginPackDto, SavePluginManifestDto } from './dto/resolve-plugins.dto';
 import { FORGE_119_GAME_VERSION, FORGE_119_LOADER } from './forge-mod-catalog';
 
 @Controller('modrinth')
 @UseGuards(JwtAuthGuard)
 export class ModrinthController {
-  constructor(private readonly modrinthService: ModrinthService) {}
+  constructor(
+    private readonly modrinthService: ModrinthService,
+    private readonly dockerComposeService: DockerComposeService,
+  ) {}
+
+  private async syncManifestToServer(serverId: string, source: ModDeployManifest | string) {
+    if (typeof source === 'string') {
+      if (!source.trim()) return;
+      await this.dockerComposeService.updateServerConfig(serverId, {
+        modrinthProjects: source,
+        modrinthLoader: 'forge',
+        modrinthDownloadDependencies: 'required',
+      });
+      return;
+    }
+
+    if (source.modpackSlug) {
+      const isHorizons = source.profile === 'horizons' || source.modpackSlug === 'horizons1';
+      await this.dockerComposeService.updateServerConfig(serverId, {
+        serverType: 'MODRINTH',
+        modrinthModpack: source.modpackSlug,
+        modrinthLoader: source.loader,
+        minecraftVersion: source.gameVersion,
+        onlineMode: false,
+        initMemory: isHorizons ? '8G' : '6G',
+        maxMemory: isHorizons ? '10G' : '8G',
+        memoryReservation: isHorizons ? '8G' : '6G',
+        motd: isHorizons ? 'abyzumMC Horizons' : `abyzumMC ${source.modpackTitle ?? source.modpackSlug}`,
+        modrinthDownloadDependencies: 'required',
+      });
+      return;
+    }
+
+    if (!source.modrinthProjects?.trim()) return;
+    await this.dockerComposeService.updateServerConfig(serverId, {
+      modrinthProjects: source.modrinthProjects,
+      modrinthLoader: source.loader || 'forge',
+      modrinthDownloadDependencies: 'required',
+    });
+  }
 
   @Get('mods/search')
   async searchMods(@Query() query: SearchModrinthModsQueryDto) {
@@ -103,6 +144,64 @@ export class ModrinthController {
               required: body.requireResourcePack ?? true,
             }
           : undefined,
+    });
+
+    await this.syncManifestToServer(serverId, manifest.modrinthProjects);
+
+    return manifest;
+  }
+
+  @Post('deploy/:serverId/server/sync')
+  async syncServerFromManifest(@Param('serverId') serverId: string) {
+    const manifest = await this.modrinthService.getDeployManifest(serverId);
+    if (!manifest || (!manifest.modpackSlug && !manifest.modrinthProjects?.trim() && !manifest.mods?.length)) {
+      throw new HttpException('No hay manifiesto de mods publicado para este servidor', HttpStatus.BAD_REQUEST);
+    }
+
+    await this.syncManifestToServer(serverId, manifest);
+
+    return {
+      synced: true,
+      modCount: manifest.mods.length,
+      modrinthProjects: manifest.modrinthProjects,
+      dependencies: manifest.mods.filter((m) => m.isDependency).map((m) => m.slug),
+    };
+  }
+
+  @Get('modpack/:slug/info')
+  async getModpackInfo(@Param('slug') slug: string) {
+    return this.modrinthService.getModpackInfo(slug);
+  }
+
+  @Post('deploy/:serverId/modpack/publish')
+  async publishModpack(
+    @Param('serverId') serverId: string,
+    @Body() body: PublishModpackDto,
+  ) {
+    const manifest = await this.modrinthService.publishModpackDeploy({
+      serverId,
+      slug: body.slug,
+      versionId: body.versionId,
+      serverHost: body.serverHost,
+      serverPort: body.serverPort,
+      serverName: body.serverName,
+      lockClientResourcePacks: body.lockClientResourcePacks,
+      profile: body.profile,
+    });
+
+    const isHorizons = body.slug === 'horizons1' || manifest.profile === 'horizons';
+    await this.dockerComposeService.updateServerConfig(serverId, {
+      serverType: 'MODRINTH',
+      modrinthModpack: body.slug,
+      modrinthLoader: manifest.loader,
+      minecraftVersion: manifest.gameVersion,
+      onlineMode: false,
+      initMemory: isHorizons ? '8G' : '6G',
+      maxMemory: isHorizons ? '10G' : '8G',
+      memoryReservation: isHorizons ? '8G' : '6G',
+      motd: isHorizons ? 'abyzumMC Horizons' : `abyzumMC ${manifest.modpackTitle ?? body.slug}`,
+      serverName: body.serverName,
+      modrinthDownloadDependencies: 'required',
     });
 
     return manifest;

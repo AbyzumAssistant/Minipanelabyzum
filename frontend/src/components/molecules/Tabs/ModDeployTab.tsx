@@ -16,9 +16,12 @@ import {
   getDeployManifest,
   saveDeployManifest,
   syncLauncherManifest,
+  syncServerModsFromManifest,
+  publishModpackDeploy,
   type ModDeployManifest,
   type ModrinthResolvedMod,
 } from '@/services/mods/mod-deploy.service';
+import { HORIZONS_MODPACK_SLUG } from '@/lib/horizons-defaults';
 import { apiRestartServer, getServerStatus, updateServerConfig } from '@/services/docker/fetchs';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
 import { getPublicEnv } from '@/lib/public-env';
@@ -34,6 +37,8 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingServer, setSyncingServer] = useState(false);
+  const [publishingModpack, setPublishingModpack] = useState(false);
   const [syncingLauncher, setSyncingLauncher] = useState(false);
   const [manifest, setManifest] = useState<ModDeployManifest | null>(null);
   const [resourcePackUrl, setResourcePackUrl] = useState(config.resourcePackUrl ?? '');
@@ -107,6 +112,77 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
     }
   };
 
+  const syncServerMods = async () => {
+    if (!manifest?.mods?.length && !manifest?.modpackSlug) {
+      mcToast.error(t('modDeployNoMods'));
+      return;
+    }
+
+    setSyncingServer(true);
+    try {
+      const result = await syncServerModsFromManifest(serverId);
+      updateConfig('modrinthProjects', result.modrinthProjects);
+      updateConfig('modrinthLoader', manifest?.loader ?? 'forge');
+      updateConfig('modrinthDownloadDependencies', 'required');
+      if (manifest?.modpackSlug) {
+        updateConfig('serverType', 'MODRINTH');
+        updateConfig('modrinthModpack', manifest.modpackSlug);
+        updateConfig('minecraftVersion', manifest.gameVersion);
+      }
+
+      const { status } = await getServerStatus(serverId);
+      if (status === 'running' || status === 'restarting') {
+        await apiRestartServer(serverId);
+      }
+
+      const depHint =
+        result.dependencies.length > 0
+          ? ` (+${result.dependencies.length} ${t('dependencies')})`
+          : '';
+      mcToast.success(`${t('modDeployServerSynced')}${depHint}`);
+    } catch {
+      mcToast.error(t('modDeployServerSyncError'));
+    } finally {
+      setSyncingServer(false);
+    }
+  };
+
+  const publishHorizonsModpack = async () => {
+    setPublishingModpack(true);
+    try {
+      const saved = await publishModpackDeploy(serverId, {
+        slug: HORIZONS_MODPACK_SLUG,
+        serverHost: resolveServerHost(),
+        serverPort: Number(config.port || DEFAULT_MC_SERVER_PORT),
+        serverName: config.serverName || 'mcabyzum',
+        lockClientResourcePacks,
+        profile: 'horizons',
+      });
+
+      updateConfig('serverType', 'MODRINTH');
+      updateConfig('modrinthModpack', HORIZONS_MODPACK_SLUG);
+      updateConfig('modrinthLoader', 'fabric');
+      updateConfig('minecraftVersion', saved.gameVersion);
+      updateConfig('initMemory', '8G');
+      updateConfig('maxMemory', '10G');
+      updateConfig('motd', 'mcabyzum · Horizons');
+      updateConfig('onlineMode', false);
+      updateConfig('modrinthDownloadDependencies', 'required');
+
+      const { status } = await getServerStatus(serverId);
+      if (status === 'running' || status === 'restarting') {
+        await apiRestartServer(serverId);
+      }
+
+      setManifest(saved);
+      mcToast.success(t('horizonsModpackPublished').replace('{count}', String(saved.mods.length)));
+    } catch {
+      mcToast.error(t('horizonsModpackPublishError'));
+    } finally {
+      setPublishingModpack(false);
+    }
+  };
+
   const copyJoinLink = () => {
     navigator.clipboard.writeText(joinUrl);
     mcToast.success(t('modDeployLinkCopied'));
@@ -130,7 +206,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
 
   const syncLauncher = async () => {
     const slugs = getModSlugs();
-    if (slugs.length === 0) {
+    if (slugs.length === 0 && !manifest?.modpackSlug) {
       mcToast.error(t('modDeployNoMods'));
       return;
     }
@@ -138,7 +214,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
     setSyncingLauncher(true);
     try {
       const saved = await syncLauncherManifest(serverId, {
-        slugs,
+        slugs: manifest?.modpackSlug ? [manifest.modpackSlug] : slugs,
         serverHost: resolveServerHost(),
         serverPort: Number(config.port || DEFAULT_MC_SERVER_PORT),
         serverName: config.serverName || serverId,
@@ -203,6 +279,33 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       </CardHeader>
 
       <CardContent className="space-y-5 pt-5">
+        <div className="rounded-lg border border-violet-900/50 bg-violet-950/20 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-violet-400" />
+            <Label className="text-sm font-medium text-white">{t('horizonsModpackTitle')}</Label>
+          </div>
+          <p className="text-xs text-zinc-400">{t('horizonsModpackDesc')}</p>
+          {manifest?.profile === 'horizons' && manifest.modpackVersion && (
+            <p className="text-xs text-violet-300">
+              {t('horizonsModpackActive')}: v{manifest.modpackVersion} · {manifest.mods.length} mods
+            </p>
+          )}
+          {manifest?.shaderPackNote && (
+            <p className="text-xs text-amber-300/90">{manifest.shaderPackNote}</p>
+          )}
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              disabled={publishingModpack || syncingServer}
+              onClick={publishHorizonsModpack}
+              className="bg-violet-600 text-white hover:bg-violet-500 border-0"
+            >
+              {publishingModpack ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
+              {t('horizonsModpackPublish')}
+            </Button>
+          </div>
+        </div>
+
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 space-y-3">
           <Label className="text-sm font-medium text-white">{t('modDeployPlayerLink')}</Label>
           <div className="flex flex-wrap gap-2">
@@ -313,7 +416,17 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={syncingServer || saving || (!manifest?.mods?.length && !manifest?.modpackSlug)}
+            onClick={syncServerMods}
+            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          >
+            {syncingServer ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            {t('modDeploySyncServer')}
+          </Button>
           <Button
             type="button"
             disabled={saving}
