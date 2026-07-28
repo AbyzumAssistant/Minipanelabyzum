@@ -18,7 +18,7 @@ import webview
 
 from inspector import GameInspector
 from forge_setup import ensure_forge_and_mod, write_mod_config
-from manifest_sync import sync_from_panel
+from manifest_sync import check_mods_current, sync_from_panel
 
 
 def bundle_root() -> Path:
@@ -145,13 +145,18 @@ def load_config() -> dict:
 
     overlay = _read_json(appdata_dir() / "config.json")
     if deploy:
-        return merge_deploy_config(deploy, overlay)
+        merged = merge_deploy_config(deploy, overlay)
+    elif overlay:
+        merged = dict(overlay)
+        merged["server"] = normalize_server(merged.get("server"))
+    else:
+        raise FileNotFoundError("No se encontró config.json para MCABYZUM")
 
-    if overlay:
-        overlay["server"] = normalize_server(overlay.get("server"))
-        return overlay
+    server_id = _server_id_from_exe()
+    if server_id:
+        merged["panel_server_id"] = server_id
 
-    raise FileNotFoundError("No se encontró config.json para MCABYZUM")
+    return merged
 
 
 def refresh_game_server_config(config: dict) -> None:
@@ -187,8 +192,44 @@ def save_runtime_config(config: dict) -> None:
     refresh_game_server_config(normalized)
 
 
+def userdata_dir() -> Path:
+    path = appdata_dir() / "userdata"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def temp_cache_dir() -> Path:
+    base = os.environ.get("TEMP") or os.environ.get("TMP") or str(Path.home())
+    path = Path(base) / ".mcabyzum"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _server_id_from_exe() -> str | None:
+    if not getattr(sys, "frozen", False):
+        return None
+    stem = Path(sys.executable).stem
+    prefix = "MCABYZUM-"
+    if stem.upper().startswith(prefix):
+        server_id = stem[len(prefix) :].strip()
+        if server_id and server_id.lower() not in {"launcher", "win"}:
+            return server_id
+    return None
+
+
+def _migrate_legacy_game_dir() -> None:
+    legacy = appdata_dir() / "game"
+    target = userdata_dir() / "game"
+    if legacy.exists() and not target.exists():
+        try:
+            shutil.move(str(legacy), str(target))
+        except OSError:
+            pass
+
+
 def minecraft_dir() -> Path:
-    path = appdata_dir() / "game"
+    _migrate_legacy_game_dir()
+    path = userdata_dir() / "game"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -214,8 +255,10 @@ class Api:
         username = (settings.get("username") or "").strip()
         installed = self._is_installed()
         ready = installed and self._inspector().is_ready()
+        mods_current = self._mods_are_current() if ready else False
+        fast_ready = ready and mods_current and bool(self._get_forge_launch_version()) and self._login_mod_present()
         remembered = bool(username) and username.lower() != "player"
-        auto_enter = bool(settings.get("auto_enter", True)) and remembered and ready
+        auto_enter = bool(settings.get("auto_enter", True)) and remembered and fast_ready
         return {
             "appName": self.config["app_name"],
             "brand": self.config["brand"],
@@ -226,6 +269,8 @@ class Api:
             "username": username or self.config.get("offline_default_name", "Player"),
             "installed": installed,
             "ready": ready,
+            "modsCurrent": mods_current,
+            "fastReady": fast_ready,
             "remembered": remembered,
             "autoEnter": auto_enter,
             "launchCount": int(settings.get("launch_count", 0)),
@@ -235,6 +280,62 @@ class Api:
         version = self.config["minecraft_version"]
         jar = minecraft_dir() / "versions" / version / f"{version}.jar"
         return jar.exists() and jar.stat().st_size > 1_000_000
+
+    def _mods_are_current(self) -> bool:
+        current, _manifest = check_mods_current(appdata_dir(), self.config)
+        return current
+
+    def _get_forge_launch_version(self) -> str | None:
+        version = self.config["minecraft_version"]
+        forge_version = self.config.get("forge_version")
+        if forge_version:
+            try:
+                expected = minecraft_launcher_lib.forge.forge_to_installed_version(forge_version)
+            except Exception:  # noqa: BLE001
+                expected = None
+            if expected and (minecraft_dir() / "versions" / expected).exists():
+                return expected
+
+        prefix = f"{version.lower()}-forge-"
+        versions_dir = minecraft_dir() / "versions"
+        if not versions_dir.exists():
+            return None
+        matches = [
+            entry.name
+            for entry in versions_dir.iterdir()
+            if entry.is_dir() and entry.name.lower().startswith(prefix)
+        ]
+        return sorted(matches, reverse=True)[0] if matches else None
+
+    def _login_mod_present(self) -> bool:
+        mods_dir = minecraft_dir() / "mods"
+        return any(
+            jar.is_file() and jar.name.lower().startswith("mcabyzum-login")
+            for jar in mods_dir.glob("*.jar")
+        )
+
+    def _can_fast_launch(self) -> bool:
+        if not self._is_installed():
+            return False
+        if not self._inspector().is_ready():
+            return False
+        if not self._mods_are_current():
+            return False
+        if not self._get_forge_launch_version():
+            return False
+        return self._login_mod_present()
+
+    def _resolve_java_path(self, version: str, mc_dir: str) -> str | None:
+        runtime_info = minecraft_launcher_lib.runtime.get_version_runtime_information(
+            version, mc_dir
+        )
+        if runtime_info is None:
+            return None
+        runtime_name = runtime_info["name"]
+        java_path = minecraft_launcher_lib.runtime.get_executable_path(runtime_name, mc_dir)
+        if java_path and Path(java_path).exists():
+            return java_path
+        return None
 
     def _emit(self, event: str, payload: dict) -> None:
         if not self.window:
@@ -328,6 +429,58 @@ class Api:
             reinstall_java=self._reinstall_java,
         )
 
+    def _launch_game(
+        self,
+        launch_version: str,
+        mc_dir: str,
+        username: str,
+        player_uuid: str,
+        java_path: str | None,
+        server: dict,
+    ) -> None:
+        ram = self.config.get("java", {})
+        min_ram = int(ram.get("min_ram_mb", 2048))
+        max_ram = int(ram.get("max_ram_mb", 4096))
+
+        options: minecraft_launcher_lib.types.MinecraftOptions = {
+            "username": username,
+            "uuid": player_uuid,
+            "token": "0",
+            "launcherName": self.config["app_name"],
+            "launcherVersion": "1.4.0",
+            "gameDirectory": mc_dir,
+            "jvmArguments": [f"-Xms{min_ram}M", f"-Xmx{max_ram}M"],
+        }
+        if java_path:
+            options["executablePath"] = java_path
+
+        command = minecraft_launcher_lib.command.get_minecraft_command(
+            launch_version, mc_dir, options
+        )
+        self._write_server_lock(mc_dir, server)
+
+        self._emit("mcabyzum:status", {"text": f"Abriendo Forge Abyzum ({username})…"})
+        self._emit("mcabyzum:progress", {"value": 100, "max": 100})
+
+        creationflags = 0
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+
+        subprocess.Popen(
+            command,
+            cwd=mc_dir,
+            creationflags=creationflags,
+            close_fds=True,
+        )
+
+        settings = load_settings()
+        settings["launch_count"] = int(settings.get("launch_count", 0)) + 1
+        settings["last_launch_ok"] = True
+        settings["auto_enter"] = True
+        save_settings(settings)
+
+        self._emit("mcabyzum:launched", {"ok": True, "username": username})
+
     def _prepare_and_launch(self) -> None:
         try:
             version = self.config["minecraft_version"]
@@ -338,6 +491,23 @@ class Api:
             settings["uuid"] = player_uuid
             save_settings(settings)
 
+            if self._can_fast_launch():
+                self._emit(
+                    "mcabyzum:status",
+                    {"text": "Minecraft y mods al día — entrando al servidor…"},
+                )
+                launch_version = self._get_forge_launch_version()
+                assert launch_version is not None
+                self.config = merge_deploy_config(self.config)
+                server = self.config["server"]
+                write_mod_config(minecraft_dir(), server, auto_join=True)
+                refresh_game_server_config(self.config)
+                java_path = self._resolve_java_path(version, mc_dir)
+                self._launch_game(
+                    launch_version, mc_dir, username, player_uuid, java_path, server
+                )
+                return
+
             self._emit("mcabyzum:status", {"text": "Inspeccionando y reparando…"})
             report = self._run_repair()
             self._last_report = report.to_dict()
@@ -347,7 +517,6 @@ class Api:
                 i.get("severity") == "error" and not i.get("fixable", True)
                 for i in self._last_report.get("issues", [])
             ):
-                # e.g. low disk — abort
                 msgs = [
                     i["message"]
                     for i in self._last_report["issues"]
@@ -355,12 +524,10 @@ class Api:
                 ]
                 raise RuntimeError(" | ".join(msgs) or "No se pudo reparar la instalación.")
 
-            # Ensure version present even if inspect said ok but jar missing race
             if not self._is_installed():
                 self._emit("mcabyzum:status", {"text": f"Descargando Minecraft {version}…"})
                 self._reinstall_version()
 
-            # Always ensure Mojang Java runtime for 1.19
             runtime_info = minecraft_launcher_lib.runtime.get_version_runtime_information(
                 version, mc_dir
             )
@@ -384,24 +551,30 @@ class Api:
 
             server = self.config["server"]
             forge_version = self.config.get("forge_version")
-            self._emit("mcabyzum:status", {"text": "Instalando Forge + login Abyzum…"})
-            launch_version = ensure_forge_and_mod(
-                minecraft_dir(),
-                version,
-                ROOT,
-                server,
-                status=lambda t: self._emit("mcabyzum:status", {"text": t}),
-                callback=self._callback(),
-                java=java_path,
-                forge_version=forge_version,
-            )
+            launch_version = self._get_forge_launch_version()
+            if not launch_version:
+                self._emit("mcabyzum:status", {"text": "Instalando Forge + login Abyzum…"})
+                launch_version = ensure_forge_and_mod(
+                    minecraft_dir(),
+                    version,
+                    ROOT,
+                    server,
+                    status=lambda t: self._emit("mcabyzum:status", {"text": t}),
+                    callback=self._callback(),
+                    java=java_path,
+                    forge_version=forge_version,
+                )
 
-            self.config = sync_from_panel(
-                minecraft_dir(),
-                appdata_dir(),
-                self.config,
-                status=lambda t: self._emit("mcabyzum:status", {"text": t}),
-            )
+            if not self._mods_are_current():
+                self.config = sync_from_panel(
+                    minecraft_dir(),
+                    appdata_dir(),
+                    self.config,
+                    status=lambda t: self._emit("mcabyzum:status", {"text": t}),
+                )
+            else:
+                self._emit("mcabyzum:status", {"text": "Mods del servidor ya están al día."})
+
             self.config = merge_deploy_config(self.config)
             save_runtime_config(self.config)
             server = self.config["server"]
@@ -423,53 +596,24 @@ class Api:
                     java=java_path,
                     forge_version=forge_version,
                 )
-            write_mod_config(minecraft_dir(), server, auto_join=True)
-            refresh_game_server_config(self.config)
 
-            ram = self.config.get("java", {})
-            min_ram = int(ram.get("min_ram_mb", 2048))
-            max_ram = int(ram.get("max_ram_mb", 4096))
-
-            options: minecraft_launcher_lib.types.MinecraftOptions = {
-                "username": username,
-                "uuid": player_uuid,
-                "token": "0",
-                "launcherName": self.config["app_name"],
-                "launcherVersion": "1.3.0",
-                "gameDirectory": mc_dir,
-                "jvmArguments": [f"-Xms{min_ram}M", f"-Xmx{max_ram}M"],
-            }
-            if java_path:
-                options["executablePath"] = java_path
-
-            command = minecraft_launcher_lib.command.get_minecraft_command(
-                launch_version, mc_dir, options
-            )
-            self._write_server_lock(mc_dir, server)
-
-            self._emit("mcabyzum:status", {"text": f"Abriendo Forge Abyzum ({username})…"})
-            self._emit("mcabyzum:progress", {"value": 100, "max": 100})
-
-            creationflags = 0
-            if sys.platform == "win32":
-                creationflags = (
-                    subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+            if not self._login_mod_present():
+                launch_version = ensure_forge_and_mod(
+                    minecraft_dir(),
+                    version,
+                    ROOT,
+                    server,
+                    status=lambda t: self._emit("mcabyzum:status", {"text": t}),
+                    callback=self._callback(),
+                    java=java_path,
+                    forge_version=forge_version,
                 )
 
-            subprocess.Popen(
-                command,
-                cwd=mc_dir,
-                creationflags=creationflags,
-                close_fds=True,
+            write_mod_config(minecraft_dir(), server, auto_join=True)
+            refresh_game_server_config(self.config)
+            self._launch_game(
+                launch_version, mc_dir, username, player_uuid, java_path, server
             )
-
-            settings = load_settings()
-            settings["launch_count"] = int(settings.get("launch_count", 0)) + 1
-            settings["last_launch_ok"] = True
-            settings["auto_enter"] = True
-            save_settings(settings)
-
-            self._emit("mcabyzum:launched", {"ok": True, "username": username})
         except Exception as exc:  # noqa: BLE001
             settings = load_settings()
             settings["last_launch_ok"] = False

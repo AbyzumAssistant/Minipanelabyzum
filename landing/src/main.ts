@@ -136,8 +136,8 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
         <h1 class="hero-title">${escapeHtml(serverName)}</h1>
         <p class="hero-subtitle">Minecraft ${escapeHtml(version)}</p>
         <p class="hero-copy">
-          Descarga el instalador MCABYZUM (Forge ${escapeHtml(version)} + mods + IP ${escapeHtml(address || 'del servidor')}).
-          Extrae el ZIP, ejecuta MCABYZUM.exe y pulsa Entrar en el launcher.
+          Descarga MCABYZUM.exe (Forge ${escapeHtml(version)}). La primera vez instala Minecraft y mods en tu PC;
+          si ya está todo al día, entra directo al servidor ${escapeHtml(address || 'del panel')}.
         </p>
 
         <label class="field-label" for="player-name">NOMBRE EN EL SERVIDOR</label>
@@ -175,7 +175,7 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
     saveUsername(serverId, nick);
     enterBtn.disabled = true;
     enterBtn.textContent = 'DESCARGANDO…';
-    setStatus('Descargando instalador MCABYZUM con mods incluidos…');
+    setStatus('Descargando MCABYZUM.exe…');
 
     if (address) {
       await copyText(address);
@@ -188,8 +188,8 @@ function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: s
       enterBtn.textContent = 'DESCARGAR INSTALADOR';
       setStatus(
         address
-          ? `Extrae el ZIP → Instalar y jugar.bat → nick en el launcher. Servidor: ${address}`
-          : 'Extrae el ZIP y ejecuta Instalar y jugar.bat',
+          ? `Ejecuta MCABYZUM.exe → nick → Entrar. Servidor: ${address}`
+          : 'Ejecuta MCABYZUM.exe y pulsa Entrar en el launcher.',
       );
     }, 5000);
   });

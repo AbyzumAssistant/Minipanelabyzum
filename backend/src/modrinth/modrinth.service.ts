@@ -1312,8 +1312,12 @@ export class ModrinthService {
     return path.join(baseDir, 'servers', serverId, 'launcher-build');
   }
 
-  private launcherBuildZipPath(serverId: string): string {
-    return path.join(this.launcherBuildDir(serverId), `MCABYZUM-${serverId}-Launcher.zip`);
+  private launcherBuildExePath(serverId: string): string {
+    return path.join(this.launcherBuildDir(serverId), `MCABYZUM-${serverId}.exe`);
+  }
+
+  private launcherBuildConfigPath(serverId: string): string {
+    return path.join(this.launcherBuildDir(serverId), 'config.json');
   }
 
   private launcherBuildMetaPath(serverId: string): string {
@@ -1321,9 +1325,9 @@ export class ModrinthService {
   }
 
   async getLauncherBuildStatus(serverId: string): Promise<LauncherBuildStatus> {
-    const zipPath = this.launcherBuildZipPath(serverId);
+    const exePath = this.launcherBuildExePath(serverId);
     try {
-      const stat = await fs.stat(zipPath);
+      const stat = await fs.stat(exePath);
       let meta: Record<string, unknown> = {};
       try {
         meta = JSON.parse(await fs.readFile(this.launcherBuildMetaPath(serverId), 'utf-8'));
@@ -1334,7 +1338,7 @@ export class ModrinthService {
         serverId,
         built: true,
         builtAt: typeof meta.builtAt === 'string' ? meta.builtAt : stat.mtime.toISOString(),
-        fileName: path.basename(zipPath),
+        fileName: path.basename(exePath),
         modCount: typeof meta.modCount === 'number' ? meta.modCount : undefined,
         launcherRevision:
           typeof meta.launcherRevision === 'number' ? meta.launcherRevision : undefined,
@@ -1349,7 +1353,7 @@ export class ModrinthService {
     const manifest = await this.getDeployManifest(serverId);
     if (!manifest || manifest.mods.length === 0) {
       throw new HttpException(
-        'Publica mods y sincroniza el launcher antes de construir el paquete.',
+        'Publica mods y sincroniza el launcher antes de construir el instalador.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -1360,97 +1364,25 @@ export class ModrinthService {
       );
     }
 
-    const zipPath = this.launcherBuildZipPath(serverId);
-    await fs.mkdir(path.dirname(zipPath), { recursive: true });
-    const tempPath = `${zipPath}.tmp`;
-    const output = createWriteStream(tempPath);
-    const archive = archiver('zip', { zlib: { level: 6 } });
-
     const launcherConfig = this.buildMcabyzumLauncherConfig(serverId, manifest, panelUrl);
     const mcabyzumWinDir = this.mcabyzumLauncherWinDir();
-    const hasMcabyzumInstaller = await this.pathExists(path.join(mcabyzumWinDir, 'MCABYZUM.exe'));
+    const sourceExe = path.join(mcabyzumWinDir, 'MCABYZUM.exe');
+    const hasMcabyzumInstaller = await this.pathExists(sourceExe);
 
-    archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' });
-    archive.append(JSON.stringify(launcherConfig, null, 2), { name: 'config.json' });
-
-    const readmePath = path.join(this.launcherAssetsDir(), 'LEEME.txt');
-    try {
-      archive.file(readmePath, { name: 'LEEME.txt' });
-    } catch {
-      /* optional */
-    }
-
-    if (hasMcabyzumInstaller) {
-      archive.directory(mcabyzumWinDir, 'MCABYZUM');
-      archive.append(JSON.stringify(launcherConfig, null, 2), { name: 'MCABYZUM/config.json' });
-      archive.append(
-        '@echo off\r\n' +
-          'cd /d "%~dp0"\r\n' +
-          'if not exist "MCABYZUM\\MCABYZUM.exe" (\r\n' +
-          '  echo Falta MCABYZUM\\MCABYZUM.exe\r\n' +
-          '  pause\r\n' +
-          '  exit /b 1\r\n' +
-          ')\r\n' +
-          'start "" "MCABYZUM\\MCABYZUM.exe"\r\n',
-        { name: 'Instalar y jugar.bat' },
+    if (!hasMcabyzumInstaller) {
+      throw new HttpException(
+        'Falta MCABYZUM.exe en assets del backend. Ejecuta mcabyzum-launcher/build.ps1 en Windows.',
+        HttpStatus.BAD_REQUEST,
       );
-    } else {
-      const assetsDir = this.launcherAssetsDir();
-      const exePath = path.join(assetsDir, 'MCABYZUM-Launcher.exe');
-      const jsPath = path.join(assetsDir, 'launcher.js');
-      try {
-        await fs.access(exePath);
-        archive.file(exePath, { name: 'MCABYZUM-Launcher.exe' });
-      } catch {
-        archive.file(jsPath, { name: 'launcher.js' });
-        archive.append(
-          '@echo off\r\ncd /d "%~dp0"\r\nwhere node >nul 2>nul\r\nif %ERRORLEVEL%==0 (node launcher.js) else (echo Instala Node.js o reconstruye MCABYZUM.exe en Windows)\r\npause\r\n',
-          { name: 'MCABYZUM-Launcher.bat' },
-        );
-      }
     }
 
-    const loginModPath = this.mcabyzumLoginModPath();
-    if (await this.pathExists(loginModPath)) {
-      archive.file(loginModPath, { name: path.posix.join('mods', 'mcabyzum-login.jar') });
-    }
+    const buildDir = this.launcherBuildDir(serverId);
+    const exePath = this.launcherBuildExePath(serverId);
+    const configPath = this.launcherBuildConfigPath(serverId);
+    await fs.mkdir(buildDir, { recursive: true });
+    await fs.copyFile(sourceExe, exePath);
+    await fs.writeFile(configPath, JSON.stringify(launcherConfig, null, 2), 'utf-8');
 
-    for (const mod of manifest.mods) {
-      try {
-        const response = await axios.get<ArrayBuffer>(mod.downloadUrl, {
-          responseType: 'arraybuffer',
-          timeout: 120000,
-        });
-        archive.append(Buffer.from(response.data), { name: path.posix.join('mods', mod.fileName) });
-      } catch (error) {
-        console.error(`Error downloading mod ${mod.slug} for launcher pack:`, error);
-      }
-    }
-
-    if (manifest.resourcePack?.url) {
-      try {
-        const response = await axios.get<ArrayBuffer>(manifest.resourcePack.url, {
-          responseType: 'arraybuffer',
-          timeout: 120000,
-        });
-        const packName = `${manifest.resourcePack.name || 'resourcepack'}.zip`.replace(/[^\w.-]+/g, '_');
-        archive.append(Buffer.from(response.data), {
-          name: path.posix.join('resourcepack', packName),
-        });
-      } catch (error) {
-        console.error('Error downloading resource pack for launcher pack:', error);
-      }
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      output.on('close', () => resolve());
-      output.on('error', reject);
-      archive.on('error', reject);
-      archive.pipe(output);
-      archive.finalize();
-    });
-
-    await fs.rename(tempPath, zipPath);
     await fs.writeFile(
       this.launcherBuildMetaPath(serverId),
       JSON.stringify(
@@ -1458,7 +1390,8 @@ export class ModrinthService {
           builtAt: launcherConfig.builtAt,
           modCount: manifest.mods.length,
           launcherRevision: manifest.launcherRevision ?? 0,
-          installer: hasMcabyzumInstaller ? 'MCABYZUM.exe' : 'legacy',
+          installer: 'MCABYZUM.exe',
+          note: 'Los mods se descargan al entrar; no van embebidos en el .exe.',
         },
         null,
         2,
@@ -1477,10 +1410,10 @@ export class ModrinthService {
     if (!status.built) {
       await this.buildLauncherPack(serverId, panelUrl);
     }
-    const zipPath = this.launcherBuildZipPath(serverId);
+    const exePath = this.launcherBuildExePath(serverId);
     return {
-      stream: createReadStream(zipPath),
-      name: path.basename(zipPath),
+      stream: createReadStream(exePath),
+      name: path.basename(exePath),
     };
   }
 }

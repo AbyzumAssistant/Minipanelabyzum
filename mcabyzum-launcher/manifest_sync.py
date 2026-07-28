@@ -1,10 +1,12 @@
 """
 Sync server mods + resource pack from Minipanelabyzum deploy manifest.
+Downloads go to %TEMP%\\.mcabyzum; installed mods live under userdata.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -96,9 +98,16 @@ def _safe_filename(name: str) -> str:
     return cleaned
 
 
+def temp_download_dir() -> Path:
+    base = os.environ.get("TEMP") or os.environ.get("TMP") or str(Path.home())
+    path = Path(base) / ".mcabyzum" / "downloads"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + ".part")
+    tmp = temp_download_dir() / f"{dest.name}.{hashlib.sha1(url.encode()).hexdigest()[:12]}.part"
     with urllib.request.urlopen(url, timeout=120) as response, tmp.open("wb") as handle:
         while True:
             chunk = response.read(1024 * 1024)
@@ -106,6 +115,21 @@ def _download(url: str, dest: Path) -> None:
                 break
             handle.write(chunk)
     tmp.replace(dest)
+
+
+def check_mods_current(app_dir: Path, config: dict) -> tuple[bool, dict | None]:
+    """Return (up_to_date, manifest_or_none)."""
+    backend_url = (config.get("backend_url") or "").strip()
+    server_id = (config.get("panel_server_id") or "").strip()
+    if not backend_url or not server_id:
+        return True, None
+
+    try:
+        manifest = fetch_manifest(backend_url, server_id)
+    except urllib.error.URLError:
+        return bool(load_local_state(app_dir)), None
+
+    return not needs_sync(app_dir, manifest), manifest
 
 
 def sync_mods(mc_dir: Path, manifest: dict, status: StatusFn | None = None) -> None:

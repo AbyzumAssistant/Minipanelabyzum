@@ -88,7 +88,7 @@ async function startEnter(name) {
     usernameInput.focus();
     return;
   }
-  setBusy(true, boot?.ready ? `Entrando como ${nick}…` : "Inspeccionando / preparando 1.19.2…");
+  setBusy(true, boot?.fastReady ? `Entrando como ${nick}…` : "Inspeccionando / preparando 1.19.2…");
   barFill.style.width = "8%";
   inspectLog.hidden = true;
   try {
@@ -147,9 +147,11 @@ window.addEventListener("pywebviewready", async () => {
 
     if (boot.remembered) {
       showRemembered(boot.username);
-      lede.textContent = boot.ready
-        ? `Bienvenido de nuevo, ${boot.username}. Entrando directo a 1.19.2.`
-        : `Hola ${boot.username}. Reparando e instalando 1.19.2…`;
+      lede.textContent = boot.fastReady
+        ? `Bienvenido de nuevo, ${boot.username}. Entrando directo al servidor.`
+        : boot.ready
+          ? `Hola ${boot.username}. Sincronizando mods del panel…`
+          : `Hola ${boot.username}. Preparando Minecraft 1.19.2…`;
     }
 
     if (boot.autoEnter && !autoStarted) {

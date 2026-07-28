@@ -143,7 +143,7 @@ export class ModrinthController {
     const { stream, name } = await this.modrinthService.openLauncherPackStream(serverId, panelUrl);
 
     res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
-    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Type', 'application/octet-stream');
 
     stream.on('error', () => {
       if (!res.headersSent) {

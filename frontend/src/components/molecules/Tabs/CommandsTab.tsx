@@ -166,11 +166,36 @@ export const CommandsTab: FC<CommandsTabProps> = ({ serverId, serverStatus, rcon
       { label: t("cmdSpigotTimings"), command: "timings on", category: "admin" },
       { label: t("cmdStopServer"), command: "stop", category: "admin" },
       { label: t("cmdReloadServer"), command: "reload", category: "admin" },
+      { label: t("cmdTitleBroadcast"), command: 'title @a title {"text":"Servidor Abyzum","color":"green"}', category: "admin" },
+      { label: t("cmdTellrawBroadcast"), command: 'tellraw @a {"text":"Mensaje del panel","color":"aqua"}', category: "admin" },
+      { label: t("cmdSpreadPlayers"), command: "spreadplayers 100 200 false @a", category: "world" },
+      { label: t("cmdMobSpawningOff"), command: "gamerule doMobSpawning false", category: "world" },
+      { label: t("cmdMobSpawningOn"), command: "gamerule doMobSpawning true", category: "world" },
+      { label: t("cmdImmediateRespawn"), command: "gamerule doImmediateRespawn true", category: "world" },
+      { label: t("cmdAnnounceAdvancementsOff"), command: "gamerule announceAdvancements false", category: "world" },
+      { label: t("cmdDefaultGamemodeSurvival"), command: "defaultgamemode survival", category: "world" },
+      { label: t("cmdDefaultGamemodeCreative"), command: "defaultgamemode creative", category: "world" },
+      { label: t("cmdGiveIronPickaxe"), command: "give @a minecraft:iron_pickaxe", category: "items" },
+      { label: t("cmdGiveBread"), command: "give @a minecraft:bread 64", category: "items" },
+      { label: t("cmdGiveShield"), command: "give @a minecraft:shield", category: "items" },
+      { label: t("cmdGiveBow"), command: "give @a minecraft:bow", category: "items" },
+      { label: t("cmdEffectResistance"), command: "effect give @a minecraft:resistance 300 1", category: "players" },
+      { label: t("cmdEffectNightVision"), command: "effect give @a minecraft:night_vision 300 0", category: "players" },
+      { label: t("cmdEffectSaturation"), command: "effect give @a minecraft:saturation 60 1", category: "players" },
+      { label: t("cmdKillArrows"), command: "kill @e[type=minecraft:arrow]", category: "world" },
+      { label: t("cmdSetXpLevel"), command: "xp set @a 30 levels", category: "players" },
+      { label: t("cmdAddTime"), command: "time add 1000", category: "world" },
+      { label: t("cmdFreezeRandomTick"), command: "gamerule randomTickSpeed 0", category: "world" },
+      { label: t("cmdUnfreezeRandomTick"), command: "gamerule randomTickSpeed 3", category: "world" },
+      { label: t("cmdForgeChunkInfo"), command: "forge entity list", category: "admin" },
+      { label: t("cmdHealAll"), command: "effect give @a minecraft:instant_health 1 10", category: "players" },
+      { label: t("cmdFeedAll"), command: "effect give @a minecraft:saturation 1 10", category: "players" },
+      { label: t("cmdStopRain"), command: "weather clear 1", category: "world" },
     ],
     [t]
   );
 
-  const commonCommands = allCommands.slice(0, 7);
+  const commonCommands = allCommands.slice(0, 12);
 
   useEffect(() => {
     if (command) {
@@ -334,6 +359,12 @@ export const CommandsTab: FC<CommandsTabProps> = ({ serverId, serverStatus, rcon
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                 <Button type="button" variant="outline" size="sm" onClick={handleSaveWorld} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-gray-700 hover:text-white">
                   <Save className="h-3 w-3" /> {t("saveWorld")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => runCommand("effect give @a minecraft:instant_health 1 10", t("playerHealed"))} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-red-600/20 hover:border-red-500 hover:text-red-400">
+                  <Heart className="h-3 w-3" /> {t("cmdHealAll")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => runCommand("effect give @a minecraft:saturation 1 10", t("effectGiven"))} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-yellow-600/20 hover:border-yellow-500 hover:text-yellow-400">
+                  <Gift className="h-3 w-3" /> {t("cmdFeedAll")}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => handleWhitelistToggle(true)} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-gray-700 hover:text-white">
                   <ShieldCheck className="h-3 w-3" /> {t("whitelistOn")}
@@ -661,6 +692,15 @@ export const CommandsTab: FC<CommandsTabProps> = ({ serverId, serverStatus, rcon
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => handleGamerule("doWeatherCycle", false)} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-cyan-600/20 hover:border-cyan-500 hover:text-cyan-400">
                   <Wind className="h-3 w-3" /> {t("freezeWeather")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => runCommand("gamerule doMobSpawning false", t("gameruleChanged"))} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-red-600/20 hover:border-red-500 hover:text-red-400">
+                  <Bug className="h-3 w-3" /> {t("cmdMobSpawningOff")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => runCommand("gamerule doMobSpawning true", t("gameruleChanged"))} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-green-600/20 hover:border-green-500 hover:text-green-400">
+                  <Bug className="h-3 w-3" /> {t("cmdMobSpawningOn")}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => runCommand("gamerule randomTickSpeed 0", t("gameruleChanged"))} className="text-xs gap-1 bg-gray-800/60 border-gray-600 text-gray-200 hover:bg-blue-600/20 hover:border-blue-500 hover:text-blue-400">
+                  <EyeOff className="h-3 w-3" /> {t("cmdFreezeRandomTick")}
                 </Button>
               </div>
             </div>
