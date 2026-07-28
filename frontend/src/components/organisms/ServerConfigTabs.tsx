@@ -1,4 +1,4 @@
-import { FormEvent, FC, useEffect, useState, type ReactNode } from "react";
+import { FormEvent, FC, useCallback, useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ServerConfig } from "@/lib/types/types";
@@ -64,7 +64,6 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
   const { t } = useLanguage();
   const setNav = useServerNavStore((state) => state.setNav);
   const setActiveNav = useServerNavStore((state) => state.setActive);
-  const storeActive = useServerNavStore((state) => state.active);
   const clearNav = useServerNavStore((state) => state.clear);
 
   const serverName = config.serverName || serverId;
@@ -141,7 +140,32 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
     return ALL_TAB_VALUES.includes(hash) ? hash : "type";
   };
 
-  const [activeTab, setActiveTab] = useState(getInitialTab());
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  const selectTab = useCallback(
+    (value: string, options?: { updateHash?: boolean }) => {
+      if (!ALL_TAB_VALUES.includes(value) || value === activeTab) {
+        return;
+      }
+      setActiveTab(value);
+      setActiveNav(value);
+      if (options?.updateHash !== false && typeof window !== "undefined") {
+        const nextHash = `#${value}`;
+        if (window.location.hash !== nextHash) {
+          window.location.hash = value;
+        }
+      }
+    },
+    [activeTab, setActiveNav],
+  );
+
+  useEffect(() => {
+    const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+    const tab = ALL_TAB_VALUES.includes(hash) ? hash : "type";
+    setActiveTab(tab);
+    setActiveNav(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !hasUnsavedChanges) return;
@@ -154,22 +178,18 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.location.hash = activeTab;
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      if (ALL_TAB_VALUES.includes(hash)) {
-        setActiveTab(hash);
+      if (!ALL_TAB_VALUES.includes(hash) || hash === activeTab) {
+        return;
       }
+      setActiveTab(hash);
+      setActiveNav(hash);
     };
 
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  }, [activeTab, setActiveNav]);
 
   // Publish the tab list to the global sidebar (drill-in nav). navSignature is a
   // stable proxy for navItems/paletteItems, which are rebuilt on every render.
@@ -177,18 +197,6 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
     setNav({ serverId, serverName, items: navItems, paletteItems });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navSignature, serverId, serverName, setNav]);
-
-  useEffect(() => {
-    if (storeActive && ALL_TAB_VALUES.includes(storeActive) && storeActive !== activeTab) {
-      setActiveTab(storeActive);
-    }
-  }, [storeActive, activeTab]);
-
-  useEffect(() => {
-    if (storeActive !== activeTab) {
-      setActiveNav(activeTab);
-    }
-  }, [activeTab, setActiveNav, storeActive]);
 
   useEffect(() => () => clearNav(), [clearNav]);
 
@@ -202,13 +210,12 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
   );
 
   useEffect(() => {
-    if (isServerRunning) {
-      const disabledTabs = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "landing", "papermc", "plugins", "advanced", "files"];
-      if (disabledTabs.includes(activeTab)) {
-        setActiveTab("logs");
-      }
+    if (!isServerRunning) return;
+    const disabledTabs = ["type", "general", "resources", "bedrock", "addons", "mods", "deploy", "landing", "papermc", "plugins", "advanced", "files"];
+    if (disabledTabs.includes(activeTab)) {
+      selectTab("logs");
     }
-  }, [isServerRunning, activeTab]);
+  }, [isServerRunning, activeTab, selectTab]);
 
   return (
     <div className="space-y-4 pb-24 animate-fade-in">
@@ -235,13 +242,7 @@ export const ServerConfigTabs: FC<ServerConfigTabsProps> = ({
       )}
 
       <form onSubmit={handleSubmit}>
-        <Tabs value={activeTab} onValueChange={(value) => {
-          setActiveTab(value);
-          setActiveNav(value);
-          if (typeof window !== 'undefined') {
-            window.location.hash = value;
-          }
-        }} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => selectTab(value)} className="w-full">
           <div className="mc-panel min-w-0 p-4 text-gray-200 min-h-[400px]">
               <TabsContent value="type" className="space-y-4 mt-0">
                 {wrapTab(t("serverType"), <ServerTypeTab config={config} updateConfig={updateConfig} />)}

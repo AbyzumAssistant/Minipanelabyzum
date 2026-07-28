@@ -32,7 +32,8 @@ export const useServerNavStore = create<ServerNavState>((set) => ({
 
   setNav: ({ serverId, serverName, items, paletteItems }) => set({ serverId, serverName, items, paletteItems }),
 
-  setActive: (active) => set({ active }),
+  setActive: (active) =>
+    set((state) => (state.active === active ? state : { ...state, active })),
 
   clear: () => set({ serverId: null, serverName: "", items: [], paletteItems: [], active: "" }),
 }));

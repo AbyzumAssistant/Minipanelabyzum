@@ -15,16 +15,15 @@ const groupLabelKey: Record<ServerNavGroup, TranslationKey> = {
 };
 
 const goToTab = (value: string) => {
-  const setActive = useServerNavStore.getState().setActive;
-  setActive(value);
   if (typeof window !== 'undefined') {
     const nextHash = `#${value}`;
     if (window.location.hash === nextHash) {
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
       return;
     }
     window.location.hash = value;
+    return;
   }
+  useServerNavStore.getState().setActive(value);
 };
 
 interface SidebarServerNavProps {
