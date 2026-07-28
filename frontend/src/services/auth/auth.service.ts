@@ -1,4 +1,5 @@
-import api from "../axios.service";
+import api from '../axios.service';
+import { isRecoverableNetworkError, sleep } from '@/lib/chunk-recovery';
 import { getPublicEnv } from "@/lib/public-env";
 import { AUTH_LOGIN_PATH } from "@/lib/auth-routes";
 import { UserAccessState, UserInvitation } from "../users/users.service";
@@ -211,17 +212,28 @@ export const refreshToken = async (): Promise<boolean> => {
 };
 
 export const isAuthenticated = async (): Promise<boolean> => {
-  if (typeof window === "undefined") return false;
+  if (typeof window === 'undefined') return false;
 
-  try {
-    // Try to fetch current user session (lightweight check)
-    const response = await api.get("/auth/me", { withCredentials: true });
-    return response.status === 200;
-  } catch (error) {
-    // If 401, token expired or invalid
-    console.error("Error checking authentication:", error);
-    return false;
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await api.get('/auth/me', { withCredentials: true });
+      return response.status === 200;
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401) return false;
+
+      if (attempt < maxAttempts && isRecoverableNetworkError(error)) {
+        await sleep(attempt * 600);
+        continue;
+      }
+
+      console.error('Error checking authentication:', error);
+      return false;
+    }
   }
+
+  return false;
 };
 
 export const setupAxiosInterceptors = () => {

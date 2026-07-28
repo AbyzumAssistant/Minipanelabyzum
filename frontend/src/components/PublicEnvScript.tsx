@@ -1,4 +1,4 @@
 export function PublicEnvScript() {
   // eslint-disable-next-line @next/next/no-sync-scripts
-  return <script src="/api/public-env" />;
+  return <script src="/api/public-env" defer />;
 }

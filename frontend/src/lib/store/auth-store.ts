@@ -24,6 +24,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initialize: async () => {
+    set({ isLoading: true });
     try {
       const authenticated = await checkAuth();
       set({ isAuthenticated: authenticated, isLoading: false });

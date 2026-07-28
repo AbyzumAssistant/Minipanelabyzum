@@ -42,7 +42,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }
 
   if (!isAuthenticated) {
-    return null;
+    return (
+      <div className="flex min-h-screen mp-blueprint items-center justify-center">
+        <p className="text-gray-400 text-sm">{t("verifyingAuth")}</p>
+      </div>
+    );
   }
 
   return (

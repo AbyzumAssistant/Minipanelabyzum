@@ -9,6 +9,20 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   ...(basePath && { basePath }),
 
+  async headers() {
+    return [
+      {
+        source: '/((?!_next/static|_next/image|favicon.ico|images|landing).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
+
   async rewrites() {
     return [
       {

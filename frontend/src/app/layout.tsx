@@ -2,6 +2,7 @@ import type React from 'react';
 import type { Metadata } from 'next';
 import { Archivo, Archivo_Black, JetBrains_Mono } from 'next/font/google';
 import { PublicEnvScript } from '@/components/PublicEnvScript';
+import { ChunkRecoveryInit } from '@/components/ChunkRecoveryInit';
 import { Toaster } from '@/components/ui/sonner';
 import { LanguageProvider } from '@/lib/hooks/useLanguage';
 import { MotionProvider } from '@/lib/providers/motion-provider';
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { readonly children: React.Reac
         <PublicEnvScript />
       </head>
       <body>
+        <ChunkRecoveryInit />
         <MotionProvider>
           <LanguageProvider>
             {children}

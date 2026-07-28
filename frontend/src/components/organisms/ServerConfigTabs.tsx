@@ -2,28 +2,38 @@ import { FormEvent, FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ServerConfig } from "@/lib/types/types";
+import { importWithRetry } from "@/lib/chunk-recovery";
 import { SaveModeControl } from "../molecules/SaveModeControl";
 import { Settings, Server, Cpu, Package, Terminal, ScrollText, Code, Layers, FolderOpen, Smartphone, Activity, Clock, Rocket, Globe } from "lucide-react";
 import { useLanguage } from "@/lib/hooks/useLanguage";
 import { type TabSearchItem } from "./TabSearch";
 import { useServerNavStore, type ServerNavItem } from "@/lib/store/server-nav-store";
 
-const LogsTab = dynamic(() => import("../molecules/Tabs/LogsTab").then(mod => mod.LogsTab));
-const CommandsTab = dynamic(() => import("../molecules/Tabs/CommandsTab").then(mod => mod.CommandsTab));
-const AdvancedTab = dynamic(() => import("../molecules/Tabs/AdvancedTab").then(mod => mod.AdvancedTab));
-const ModsTab = dynamic(() => import("../molecules/Tabs/ModsTab").then(mod => mod.ModsTab));
-const ModDeployTab = dynamic(() => import("../molecules/Tabs/ModDeployTab").then(mod => mod.ModDeployTab));
-const LandingTab = dynamic(() => import("../molecules/Tabs/LandingTab").then(mod => mod.LandingTab));
-const PaperPluginBuilderTab = dynamic(() => import("../molecules/Tabs/PaperPluginBuilderTab").then(mod => mod.PaperPluginBuilderTab));
-const PluginsTab = dynamic(() => import("../molecules/Tabs/PluginsTab").then(mod => mod.PluginsTab));
-const ResourcesTab = dynamic(() => import("../molecules/Tabs/ResourcesTab").then(mod => mod.ResourcesTab));
-const GeneralSettingsTab = dynamic(() => import("../molecules/Tabs/GeneralSettingsTab").then(mod => mod.GeneralSettingsTab));
-const ServerTypeTab = dynamic(() => import("../molecules/Tabs/Forge119TypePanel").then(mod => mod.Forge119TypePanel));
-const BedrockSettingsTab = dynamic(() => import("../molecules/Tabs/BedrockSettingsTab").then(mod => mod.BedrockSettingsTab));
-const BedrockAddonsTab = dynamic(() => import("../molecules/Tabs/BedrockAddonsTab").then(mod => mod.BedrockAddonsTab));
-const FilesTab = dynamic(() => import("../molecules/Tabs/FilesTab").then(mod => mod.FilesTab));
-const MetricsTab = dynamic(() => import("../molecules/Tabs/MetricsTab").then(mod => mod.MetricsTab));
-const ScheduledTasksTab = dynamic(() => import("../molecules/Tabs/ScheduledTasksTab").then(mod => mod.ScheduledTasksTab));
+const tabLoading = () => (
+  <div className="flex items-center justify-center py-16 text-zinc-400 text-sm">
+    <div className="h-5 w-5 mr-2 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+    Cargando pestaña…
+  </div>
+);
+
+const loadTab = <T,>(loader: () => Promise<T>) => importWithRetry(loader);
+
+const LogsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/LogsTab").then(mod => mod.LogsTab)), { loading: tabLoading });
+const CommandsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/CommandsTab").then(mod => mod.CommandsTab)), { loading: tabLoading });
+const AdvancedTab = dynamic(() => loadTab(() => import("../molecules/Tabs/AdvancedTab").then(mod => mod.AdvancedTab)), { loading: tabLoading });
+const ModsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/ModsTab").then(mod => mod.ModsTab)), { loading: tabLoading });
+const ModDeployTab = dynamic(() => loadTab(() => import("../molecules/Tabs/ModDeployTab").then(mod => mod.ModDeployTab)), { loading: tabLoading });
+const LandingTab = dynamic(() => loadTab(() => import("../molecules/Tabs/LandingTab").then(mod => mod.LandingTab)), { loading: tabLoading });
+const PaperPluginBuilderTab = dynamic(() => loadTab(() => import("../molecules/Tabs/PaperPluginBuilderTab").then(mod => mod.PaperPluginBuilderTab)), { loading: tabLoading });
+const PluginsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/PluginsTab").then(mod => mod.PluginsTab)), { loading: tabLoading });
+const ResourcesTab = dynamic(() => loadTab(() => import("../molecules/Tabs/ResourcesTab").then(mod => mod.ResourcesTab)), { loading: tabLoading });
+const GeneralSettingsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/GeneralSettingsTab").then(mod => mod.GeneralSettingsTab)), { loading: tabLoading });
+const ServerTypeTab = dynamic(() => loadTab(() => import("../molecules/Tabs/Forge119TypePanel").then(mod => mod.Forge119TypePanel)), { loading: tabLoading });
+const BedrockSettingsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/BedrockSettingsTab").then(mod => mod.BedrockSettingsTab)), { loading: tabLoading });
+const BedrockAddonsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/BedrockAddonsTab").then(mod => mod.BedrockAddonsTab)), { loading: tabLoading });
+const FilesTab = dynamic(() => loadTab(() => import("../molecules/Tabs/FilesTab").then(mod => mod.FilesTab)), { loading: tabLoading });
+const MetricsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/MetricsTab").then(mod => mod.MetricsTab)), { loading: tabLoading });
+const ScheduledTasksTab = dynamic(() => loadTab(() => import("../molecules/Tabs/ScheduledTasksTab").then(mod => mod.ScheduledTasksTab)), { loading: tabLoading });
 
 // Fixed list of every possible tab value, used only to validate the URL hash
 // regardless of which tabs are currently visible for this edition/type.

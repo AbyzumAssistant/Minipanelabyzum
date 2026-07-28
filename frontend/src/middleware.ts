@@ -6,6 +6,12 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get('host');
   const { pathname } = request.nextUrl;
 
+  if (pathname === '/dashboard' || pathname === '/dashboard/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard/home';
+    return NextResponse.redirect(url, 307);
+  }
+
   if (pathname === '/landing/') {
     const url = request.nextUrl.clone();
     url.pathname = '/landing';
@@ -24,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*', '/landing', '/landing/:path*'],
+  matcher: ['/dashboard', '/dashboard/:path*', '/admin/:path*', '/landing', '/landing/:path*'],
 };

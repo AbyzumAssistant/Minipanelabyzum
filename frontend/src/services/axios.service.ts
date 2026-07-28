@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getPublicEnv } from '@/lib/public-env';
 
 const api = axios.create({
-  timeout: 10000,
+  timeout: 20000,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
