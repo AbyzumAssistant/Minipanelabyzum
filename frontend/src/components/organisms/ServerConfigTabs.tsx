@@ -29,7 +29,7 @@ const PaperPluginBuilderTab = dynamic(() => loadTab(() => import("../molecules/T
 const PluginsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/PluginsTab").then(mod => mod.PluginsTab)), { loading: tabLoading });
 const ResourcesTab = dynamic(() => loadTab(() => import("../molecules/Tabs/ResourcesTab").then(mod => mod.ResourcesTab)), { loading: tabLoading });
 const GeneralSettingsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/GeneralSettingsTab").then(mod => mod.GeneralSettingsTab)), { loading: tabLoading });
-const ServerTypeTab = dynamic(() => loadTab(() => import("../molecules/Tabs/Forge119TypePanel").then(mod => mod.Forge119TypePanel)), { loading: tabLoading });
+const ServerTypeTab = dynamic(() => loadTab(() => import("../molecules/Tabs/AbyzumServerTypePanel").then(mod => mod.AbyzumServerTypePanel)), { loading: tabLoading });
 const BedrockSettingsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/BedrockSettingsTab").then(mod => mod.BedrockSettingsTab)), { loading: tabLoading });
 const BedrockAddonsTab = dynamic(() => loadTab(() => import("../molecules/Tabs/BedrockAddonsTab").then(mod => mod.BedrockAddonsTab)), { loading: tabLoading });
 const FilesTab = dynamic(() => loadTab(() => import("../molecules/Tabs/FilesTab").then(mod => mod.FilesTab)), { loading: tabLoading });

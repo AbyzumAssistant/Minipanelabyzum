@@ -61,7 +61,8 @@ import { getStatusBadgeClass, getStatusColor, getStatusIcon } from '@/lib/utils/
 import { useServersStore } from '@/lib/store/servers-store';
 import { getTemplatesByEdition, ServerTemplate, serverTemplates } from '@/lib/server-templates';
 import { ServerEdition } from '@/lib/types/types';
-import { applyForge119Defaults, FORGE_119_PROFILE } from '@/lib/forge-defaults';
+import { applyForge119Defaults } from '@/lib/forge-defaults';
+import { applyHorizonsProfile } from '@/lib/server-profile';
 import { TranslationKey } from '@/lib/translations';
 import { getCurrentUser } from '@/services/users/users.service';
 
@@ -86,7 +87,9 @@ export default function Dashboard() {
   const [cloneNewId, setCloneNewId] = useState('');
   const [isCloning, setIsCloning] = useState(false);
   const [createMode, setCreateMode] = useState<'quick' | 'template'>('quick');
-  const [selectedTemplate, setSelectedTemplate] = useState<ServerTemplate | null>(serverTemplates[0] ?? null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ServerTemplate | null>(
+    serverTemplates.find((template) => template.id === 'horizons-abyzum') ?? serverTemplates[0] ?? null,
+  );
   const [selectedEdition] = useState<ServerEdition>('JAVA');
   const [canCreateServers, setCanCreateServers] = useState(false);
   const availableTemplates = getTemplatesByEdition(selectedEdition);
@@ -243,7 +246,9 @@ export default function Dashboard() {
         port: '25565',
       });
       const serverData = selectedTemplate
-        ? applyForge119Defaults({ ...baseConfig, ...selectedTemplate.config, id: values.id })
+        ? selectedTemplate.id === 'horizons-abyzum'
+          ? applyHorizonsProfile({ ...baseConfig, ...selectedTemplate.config, id: values.id })
+          : applyForge119Defaults({ ...baseConfig, ...selectedTemplate.config, id: values.id })
         : baseConfig;
       const response = await createServer(serverData);
       if (response.success) {
@@ -425,8 +430,8 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-400">{t('quickCreateDesc')}</p>
                   )}
 
-                  <div className="rounded-lg border border-emerald-600/40 bg-emerald-900/20 p-3 text-sm text-emerald-200">
-                    Servidor exclusivo: Minecraft Forge {FORGE_119_PROFILE.minecraftVersion} optimizado
+                  <div className="rounded-lg border border-violet-600/40 bg-violet-900/20 p-3 text-sm text-violet-200">
+                    Perfil recomendado: abyzumMC Horizons (Fabric 1.20.1). También disponible Forge 1.19.2.
                   </div>
 
                   <FormField

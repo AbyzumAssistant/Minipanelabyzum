@@ -14,20 +14,20 @@ export interface ServerTemplate {
 
 export const serverTemplates: ServerTemplate[] = [
   {
-    id: "forge-119-optimized",
-    name: "forge119Optimized",
-    description: "forge119OptimizedDesc",
-    icon: "anvil",
-    color: "emerald",
-    config: { ...FORGE_119_PROFILE },
-  },
-  {
     id: "horizons-abyzum",
     name: "horizonsAbyzum",
     description: "horizonsAbyzumDesc",
     icon: "globe",
     color: "violet",
     config: { ...HORIZONS_PROFILE },
+  },
+  {
+    id: "forge-119-optimized",
+    name: "forge119Optimized",
+    description: "forge119OptimizedDesc",
+    icon: "anvil",
+    color: "emerald",
+    config: { ...FORGE_119_PROFILE },
   },
 ];
 

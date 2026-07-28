@@ -48,12 +48,20 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
 
   const landingBase = getPublicEnv('NEXT_PUBLIC_LANDING_URL').replace(/\/$/, '');
   const joinUrl = `${landingBase}/landing/?server=${encodeURIComponent(serverId)}`;
+  const horizonsActive =
+    manifest?.profile === 'horizons' ||
+    config.serverType === 'MODRINTH' ||
+    config.modrinthModpack === HORIZONS_MODPACK_SLUG;
 
   const loadManifest = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getDeployManifest(serverId);
-      setManifest(data);
+      if (data) {
+        setManifest({ ...data, mods: data.mods ?? [] });
+      } else {
+        setManifest(null);
+      }
       if (data?.lockClientResourcePacks !== undefined) {
         setLockClientResourcePacks(data.lockClientResourcePacks);
       }
@@ -227,21 +235,32 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
 
       await updateServerConfig(serverId, {
         onlineMode: false,
-        minecraftVersion: '1.19.2',
-        forgeBuild: config.forgeBuild || '43.3.0',
-        serverType: 'FORGE',
+        minecraftVersion: horizonsActive ? config.minecraftVersion || '1.20.1' : '1.19.2',
+        forgeBuild: horizonsActive ? undefined : config.forgeBuild || '43.3.0',
+        serverType: horizonsActive ? 'MODRINTH' : 'FORGE',
+        modrinthModpack: horizonsActive ? config.modrinthModpack : undefined,
+        modrinthLoader: horizonsActive ? 'fabric' : 'forge',
       });
 
       const { status } = await getServerStatus(serverId);
-      if (status === 'running') {
+      if (status === 'running' || status === 'starting') {
         await apiRestartServer(serverId);
       }
 
       updateConfig('onlineMode', false);
-      updateConfig('minecraftVersion', '1.19.2');
-      updateConfig('forgeBuild', config.forgeBuild || '43.3.0');
+      if (horizonsActive) {
+        updateConfig('serverType', 'MODRINTH');
+        updateConfig('modrinthLoader', 'fabric');
+        updateConfig('minecraftVersion', saved.gameVersion || config.minecraftVersion || '1.20.1');
+        if (config.modrinthModpack) {
+          updateConfig('modrinthModpack', config.modrinthModpack);
+        }
+      } else {
+        updateConfig('minecraftVersion', '1.19.2');
+        updateConfig('forgeBuild', config.forgeBuild || '43.3.0');
+        updateConfig('modrinthLoader', 'forge');
+      }
       updateConfig('modrinthProjects', saved.modrinthProjects);
-      updateConfig('modrinthLoader', 'forge');
       updateConfig('modrinthDownloadDependencies', 'required');
       if (resourcePackUrl) {
         updateConfig('resourcePackUrl', resourcePackUrl);
@@ -263,8 +282,8 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       ? `${window.location.origin}/api/backend/modrinth/deploy/${serverId}/manifest`
       : `/api/backend/modrinth/deploy/${serverId}/manifest`;
 
-  const rootMods = manifest?.mods.filter((m) => !m.isDependency) ?? [];
-  const deps = manifest?.mods.filter((m) => m.isDependency) ?? [];
+  const rootMods = manifest?.mods?.filter((m) => !m.isDependency) ?? [];
+  const deps = manifest?.mods?.filter((m) => m.isDependency) ?? [];
 
   return (
     <Card className="overflow-hidden border-zinc-800 bg-zinc-950 shadow-none">
@@ -287,7 +306,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
           <p className="text-xs text-zinc-400">{t('horizonsModpackDesc')}</p>
           {manifest?.profile === 'horizons' && manifest.modpackVersion && (
             <p className="text-xs text-violet-300">
-              {t('horizonsModpackActive')}: v{manifest.modpackVersion} · {manifest.mods.length} mods
+              {t('horizonsModpackActive')}: v{manifest.modpackVersion} · {manifest.mods?.length ?? 0} mods
             </p>
           )}
           {manifest?.shaderPackNote && (

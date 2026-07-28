@@ -9,9 +9,10 @@ import {
 import { mcToast } from '@/lib/utils/minecraft-toast';
 import { useLanguage } from '@/lib/hooks/useLanguage';
 
-import { applyForge119Defaults, FORGE_119_PROFILE } from '@/lib/forge-defaults';
+import { applyServerProfileDefaults, applyHorizonsProfile, isLegacyForgeMcabyzum } from '@/lib/server-profile';
+import { FORGE_119_PROFILE } from '@/lib/forge-defaults';
 
-const defaultConfig: ServerConfig = applyForge119Defaults({
+const defaultConfig: ServerConfig = applyServerProfileDefaults({
   id: 'Server',
   active: false,
   serverName: 'Forge 1.19 Server',
@@ -179,10 +180,25 @@ export function useServerConfig(serverId: string) {
           }
         }
 
-        setConfig(normalizeAutoStopRestartPolicy(applyForge119Defaults({
+        let profileConfig = applyServerProfileDefaults({
           ...defaultConfig,
           ...serverConfig,
-        })));
+        });
+
+        if (isLegacyForgeMcabyzum(serverId, serverConfig)) {
+          profileConfig = applyHorizonsProfile({
+            ...profileConfig,
+            ...serverConfig,
+            id: serverId,
+          });
+          try {
+            await updateServerConfig(serverId, profileConfig);
+          } catch (migrateError) {
+            console.warn('No se pudo migrar mcabyzum a Horizons automáticamente:', migrateError);
+          }
+        }
+
+        setConfig(normalizeAutoStopRestartPolicy(profileConfig));
       } catch (error) {
         console.error('Error loading server config:', error);
         mcToast.error(t('loadConfigError'));

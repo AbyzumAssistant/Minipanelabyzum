@@ -1588,6 +1588,10 @@ export const es: Record<TranslationKey, string> = {
   horizonsModpackPublished: 'Horizons publicado: {count} archivos sincronizados al servidor y launcher.',
   horizonsModpackPublishError: 'No se pudo publicar el modpack Horizons',
   horizonsModpackActive: 'Modpack activo',
+  applyHorizonsProfile: 'Usar Horizons 1.20.1',
+  applyForgeProfile: 'Usar Forge 1.19.2',
+  serverProfileSaveHint:
+    'Elige el perfil, pulsa Guardar servidor abajo y luego publica Horizons en Despliegue de mods.',
   paperPerformance: 'Paper Rendimiento',
   paperPerformanceDesc:
     'Servidor Paper optimizado con flags Aikar. Ideal para servidores públicos.',

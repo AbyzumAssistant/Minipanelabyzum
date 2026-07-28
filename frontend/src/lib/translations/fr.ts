@@ -1572,6 +1572,10 @@ export const fr: Record<TranslationKey, string> = {
   horizonsModpackPublished: 'Horizons published: {count} files synced to server and launcher.',
   horizonsModpackPublishError: 'Could not publish Horizons modpack',
   horizonsModpackActive: 'Active modpack',
+  applyHorizonsProfile: 'Use Horizons 1.20.1',
+  applyForgeProfile: 'Use Forge 1.19.2',
+  serverProfileSaveHint:
+    'Choose a profile, click Save server below, then publish Horizons in Mod deploy.',
   paperPerformance: 'Performance Paper',
   paperPerformanceDesc: 'Serveur Paper optimisé avec les flags Aikar. Idéal pour les serveurs publics.',
   paperCrossplay: 'Paper Cross-Play',
