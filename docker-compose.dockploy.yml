@@ -1,6 +1,7 @@
-# Dokploy — Compose file: docker-compose.dockploy.yml
-# Dominios (HTTPS): mccubneuifbu23d.abyzum.com (panel) + mc.abyzum.com (landing)
-# Env: .env.dockploy.example
+# Dokploy — usar SOLO pestaña Domains (no labels Traefik aquí).
+# Compose file en Dokploy: docker-compose.dockploy.yml
+# Domains → servicio frontend, puerto 3000, HTTPS:
+#   mccubneuifbu23d.abyzum.com + mc.abyzum.com
 
 services:
   backend:
@@ -38,6 +39,8 @@ services:
         BACKEND_PROXY_URL: ${BACKEND_PROXY_URL:-http://backend:8091}
     expose:
       - '3000'
+    ports:
+      - '3000'
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-/api/backend}
@@ -55,18 +58,6 @@ services:
       - backend
     networks:
       - dokploy-network
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=dokploy-network
-      - traefik.http.services.mcabyzum-frontend.loadbalancer.server.port=3000
-      - traefik.http.routers.mcabyzum-panel.rule=Host(`mccubneuifbu23d.abyzum.com`)
-      - traefik.http.routers.mcabyzum-panel.entrypoints=websecure
-      - traefik.http.routers.mcabyzum-panel.tls.certresolver=letsencrypt
-      - traefik.http.routers.mcabyzum-panel.service=mcabyzum-frontend
-      - traefik.http.routers.mcabyzum-landing.rule=Host(`mc.abyzum.com`)
-      - traefik.http.routers.mcabyzum-landing.entrypoints=websecure
-      - traefik.http.routers.mcabyzum-landing.tls.certresolver=letsencrypt
-      - traefik.http.routers.mcabyzum-landing.service=mcabyzum-frontend
     restart: unless-stopped
 
 networks:
