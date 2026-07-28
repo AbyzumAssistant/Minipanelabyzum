@@ -131,7 +131,7 @@ describe('ServerManagementController', () => {
 
   describe('startServer', () => {
     it('should start server and return success message', async () => {
-      serverService.startServer.mockResolvedValue(true);
+      serverService.startServer.mockResolvedValue({ success: true, message: 'Server started successfully' });
 
       const result = await controller.startServer('myserver');
 

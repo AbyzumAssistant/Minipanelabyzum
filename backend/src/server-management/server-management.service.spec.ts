@@ -187,7 +187,7 @@ describe('ServerManagementService', () => {
   describe('startServer', () => {
     it('should fail for invalid server ID', async () => {
       const result = await service.startServer('invalid;id');
-      expect(result).toBe(false);
+      expect(result.success).toBe(false);
     });
 
     it('should fail when docker-compose does not exist', async () => {
@@ -195,7 +195,7 @@ describe('ServerManagementService', () => {
 
       const result = await service.startServer('myserver');
 
-      expect(result).toBe(false);
+      expect(result.success).toBe(false);
     });
   });
 

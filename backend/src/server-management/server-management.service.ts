@@ -16,8 +16,8 @@ import { AlertsService } from 'src/alerts/alerts.service';
 const execAsync = promisify(exec);
 
 const DOCKER_COMMANDS = {
-  COMPOSE_DOWN: 'docker compose down',
-  COMPOSE_UP: 'docker compose up -d',
+  COMPOSE_DOWN: 'docker compose down --remove-orphans',
+  COMPOSE_UP: 'docker compose up -d --force-recreate --remove-orphans',
   COMPOSE_PS_SERVICE: 'docker compose ps -aq mc',
   PS_FILTER: (serverId: string) => `docker ps -a --filter "name=^/${serverId}$" --format "{{.ID}}"`,
   PS_PARTIAL: (serverId: string) => `docker ps -a --filter "name=${serverId}" --format "{{.ID}}"`,
@@ -42,6 +42,12 @@ const DOCKER_COMMANDS = {
 } as const;
 
 export type ServerStatus = 'running' | 'stopped' | 'starting' | 'not_found';
+
+export interface ServerActionResult {
+  success: boolean;
+  message: string;
+}
+
 
 export interface ServerInfo {
   exists: boolean;
@@ -649,6 +655,24 @@ export class ServerManagementService {
       this.logger.warn(`Failed to get proxy hostname for ${serverId}`, error);
       return `${serverId}.${baseDomain}`;
     }
+  }
+
+  private extractDockerError(error: unknown): string {
+    const err = error as { stderr?: string; stdout?: string; message?: string };
+    const detail = [err.stderr, err.stdout, err.message].filter(Boolean).join('\n').trim();
+    if (!detail) return 'Failed to start server';
+
+    const portMatch = detail.match(/Bind for 0\.0\.0\.0:(\d+) failed: port is already allocated/i);
+    if (portMatch) {
+      return `Puerto ${portMatch[1]} ocupado en el VPS. Ve a Configuración → Conectividad, pon otro puerto (ej. 25569), guarda e inicia de nuevo.`;
+    }
+
+    if (detail.includes('port is already allocated')) {
+      return 'Puerto ocupado en el VPS. Cambia el puerto del servidor en Configuración → Conectividad, guarda e inicia de nuevo.';
+    }
+
+    const lines = detail.split('\n').map((line) => line.trim()).filter(Boolean);
+    return lines[lines.length - 1] ?? detail.slice(0, 400);
   }
 
   private async inspectContainerState(containerId: string): Promise<{
@@ -1533,17 +1557,17 @@ export class ServerManagementService {
     }
   }
 
-  async startServer(serverId: string): Promise<boolean> {
+  async startServer(serverId: string): Promise<ServerActionResult> {
     try {
       if (!this.validateServerId(serverId)) {
         this.logger.error(`Invalid server ID: ${serverId}`);
-        return false;
+        return { success: false, message: 'Invalid server ID' };
       }
 
       const dockerComposePath = this.getDockerComposePath(serverId);
       if (!(await fs.pathExists(dockerComposePath))) {
         this.logger.error(`Docker compose file does not exist for server ${serverId}`);
-        return false;
+        return { success: false, message: 'Docker compose file does not exist' };
       }
 
       const mcDataPath = this.getMcDataPath(serverId);
@@ -1569,11 +1593,12 @@ export class ServerManagementService {
       this.logger.log(`Server ${serverId} started successfully`);
       await this.sendDiscordNotification('started', serverId);
 
-      return true;
+      return { success: true, message: 'Server started successfully' };
     } catch (error) {
+      const message = this.extractDockerError(error);
       this.logger.error(`Failed to start server ${serverId}`, error);
-      await this.sendDiscordNotification('error', serverId, { reason: 'Failed to start server' });
-      return false;
+      await this.sendDiscordNotification('error', serverId, { reason: message });
+      return { success: false, message };
     }
   }
 

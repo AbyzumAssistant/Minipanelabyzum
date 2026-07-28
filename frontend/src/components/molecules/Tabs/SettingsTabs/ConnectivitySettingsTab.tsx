@@ -47,7 +47,7 @@ export const ConnectivitySettingsTab: FC<ConnectivitySettingsTabProps> = ({
   const isBedrock = config.edition === 'BEDROCK';
   // Proxy only works with Java edition
   const serverUsesProxy = isJava && proxyEnabled && config.useProxy !== false;
-  const defaultPort = isBedrock ? '19132' : '25565';
+  const defaultPort = isBedrock ? '19132' : '25569';
 
   return (
     <>

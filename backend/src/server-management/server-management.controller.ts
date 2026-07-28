@@ -658,11 +658,8 @@ export class ServerManagementController {
       currentUser = await this.requireServerAccess(resolved.req, resolved.id);
     }
     const result = await this.managementService.startServer(resolved.id);
-    await this.recordServerAudit(currentUser, 'start_server', resolved.id, result ? `Started server ${resolved.id}` : `Failed to start server ${resolved.id}`, result ? 'success' : 'error');
-    return {
-      success: result,
-      message: result ? 'Server started successfully' : 'Failed to start server',
-    };
+    await this.recordServerAudit(currentUser, 'start_server', resolved.id, result.success ? `Started server ${resolved.id}` : `Failed to start server ${resolved.id}: ${result.message}`, result.success ? 'success' : 'error');
+    return result;
   }
 
   @Post(':id/stop')
