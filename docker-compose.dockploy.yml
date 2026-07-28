@@ -1,6 +1,11 @@
-# Dokploy — Compose file: docker-compose.dockploy.yml
-# IMPORTANTE: deja la pestaña Domains VACÍA (estos labels ya enrutan todo).
-# Preview Compose en Dokploy debe mostrar frontend en dokploy-network, puerto 4000.
+# Dokploy — usa docker-compose.dockploy.yml en Build Type → Docker Compose
+#
+# DOMINIOS (pestaña Domains, servicio frontend, puerto 4000, HTTPS):
+#   1. mccubneuifbu23d.abyzum.com
+#   2. mc.abyzum.com
+# Tras cambiar dominios: Save → Deploy. Preview Compose debe mostrar labels Traefik.
+#
+# NO uses labels Traefik manuales aquí (Dokploy los inyecta desde la UI).
 
 services:
   backend:
@@ -27,7 +32,6 @@ services:
       - ${BASE_DIR:-./data}/data:/app/data
     networks:
       - internal
-      - dokploy-network
     restart: unless-stopped
 
   frontend:
@@ -38,6 +42,8 @@ services:
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
         BACKEND_PROXY_URL: ${BACKEND_PROXY_URL:-http://backend:8091}
     expose:
+      - '4000'
+    ports:
       - '4000'
     environment:
       - NODE_ENV=production
@@ -58,29 +64,8 @@ services:
       - backend
     networks:
       - internal
-      - dokploy-network
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=dokploy-network
-      - traefik.http.services.mcabyzum-web.loadbalancer.server.port=4000
-      - traefik.http.routers.mcabyzum-panel-http.rule=Host(`mccubneuifbu23d.abyzum.com`)
-      - traefik.http.routers.mcabyzum-panel-http.entrypoints=web
-      - traefik.http.routers.mcabyzum-panel-http.service=mcabyzum-web
-      - traefik.http.routers.mcabyzum-panel.rule=Host(`mccubneuifbu23d.abyzum.com`)
-      - traefik.http.routers.mcabyzum-panel.entrypoints=websecure
-      - traefik.http.routers.mcabyzum-panel.tls.certresolver=letsencrypt
-      - traefik.http.routers.mcabyzum-panel.service=mcabyzum-web
-      - traefik.http.routers.mcabyzum-landing-http.rule=Host(`mc.abyzum.com`)
-      - traefik.http.routers.mcabyzum-landing-http.entrypoints=web
-      - traefik.http.routers.mcabyzum-landing-http.service=mcabyzum-web
-      - traefik.http.routers.mcabyzum-landing.rule=Host(`mc.abyzum.com`)
-      - traefik.http.routers.mcabyzum-landing.entrypoints=websecure
-      - traefik.http.routers.mcabyzum-landing.tls.certresolver=letsencrypt
-      - traefik.http.routers.mcabyzum-landing.service=mcabyzum-web
     restart: unless-stopped
 
 networks:
   internal:
     driver: bridge
-  dokploy-network:
-    external: true
