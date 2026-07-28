@@ -1,4 +1,5 @@
 .env
+dockploy.env
 filebrowser-data/*
 data/*
 backend/data/

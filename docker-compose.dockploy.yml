@@ -1,6 +1,7 @@
 # Compose para Dockploy — construye desde el código local (fork MCABYZUM).
 # En Dockploy: Compose file = docker-compose.dockploy.yml
-# Env file = .env (copia de .env.dockploy.example)
+# Env: pegar variables de .env.dockploy.example (FRONTEND_URL, FRONTEND_PORT=3001, etc.)
+# Domains: frontend → mccubneuifbu23d.abyzum.com, container port 3000, HTTPS on
 
 services:
   backend:
