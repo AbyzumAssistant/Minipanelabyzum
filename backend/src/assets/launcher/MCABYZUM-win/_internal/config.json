@@ -1,12 +1,14 @@
 {
   "app_name": "MCABYZUM",
   "brand": "abyzum",
-  "minecraft_version": "1.19",
+  "minecraft_version": "1.19.2",
   "mod_loader": "forge",
-  "forge_version": "1.19-41.1.0",
+  "forge_version": "1.19.2-43.3.0",
+  "panel_server_id": "mcabyzum",
+  "backend_url": "https://mc.abyzum.com/api/backend",
   "server": {
-    "host": "PLAY.MCABYZUM.COM",
-    "port": 25565,
+    "host": "65.75.202.124",
+    "port": 25569,
     "name": "Abyzum Server"
   },
   "java": {

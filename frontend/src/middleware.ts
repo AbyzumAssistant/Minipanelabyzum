@@ -12,12 +12,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 307);
   }
 
-  if (pathname === '/landing/') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/landing';
-    return NextResponse.redirect(url, 308);
-  }
-
   if (isLandingHost(host)) {
     if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) {
       const panelUrl = new URL(pathname, getPanelPublicUrl());

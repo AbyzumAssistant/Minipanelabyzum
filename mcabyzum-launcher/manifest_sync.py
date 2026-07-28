@@ -137,7 +137,12 @@ def sync_resource_pack(mc_dir: Path, manifest: dict, status: StatusFn | None = N
     _download(url, dest)
 
 
-def apply_server_from_manifest(config: dict, manifest: dict) -> dict:
+def apply_server_from_manifest(
+    config: dict,
+    manifest: dict,
+    mc_dir: Path | None = None,
+    auto_join: bool = True,
+) -> dict:
     server = manifest.get("server")
     if not server:
         return config
@@ -153,6 +158,11 @@ def apply_server_from_manifest(config: dict, manifest: dict) -> dict:
         merged["minecraft_version"] = manifest["gameVersion"]
     if manifest.get("forgeBuild"):
         merged["forge_build_hint"] = manifest["forgeBuild"]
+
+    if mc_dir is not None and merged_server.get("host"):
+        from forge_setup import write_mod_config
+
+        write_mod_config(mc_dir, merged_server, auto_join=auto_join)
 
     return merged
 
@@ -183,12 +193,12 @@ def sync_from_panel(
     if not manifest.get("mods"):
         if status:
             status("El servidor aún no publicó mods en el panel.")
-        return apply_server_from_manifest(config, manifest)
+        return apply_server_from_manifest(config, manifest, mc_dir=mc_dir)
 
     if not needs_sync(app_dir, manifest):
         if status:
             status("Mods del launcher ya están al día.")
-        return apply_server_from_manifest(config, manifest)
+        return apply_server_from_manifest(config, manifest, mc_dir=mc_dir)
 
     sync_mods(mc_dir, manifest, status=status)
     sync_resource_pack(mc_dir, manifest, status=status)
@@ -198,4 +208,4 @@ def sync_from_panel(
         count = len(manifest.get("mods") or [])
         status(f"Launcher sincronizado ({count} mods).")
 
-    return apply_server_from_manifest(config, manifest)
+    return apply_server_from_manifest(config, manifest, mc_dir=mc_dir)

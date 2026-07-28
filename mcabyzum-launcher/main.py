@@ -74,6 +74,12 @@ def save_settings(data: dict) -> None:
     user_settings_path().write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+def save_runtime_config(config: dict) -> None:
+    appdata_dir().joinpath("config.json").write_text(
+        json.dumps(config, indent=2), encoding="utf-8"
+    )
+
+
 def minecraft_dir() -> Path:
     path = appdata_dir() / "game"
     path.mkdir(parents=True, exist_ok=True)
@@ -286,6 +292,7 @@ class Api:
                 self.config,
                 status=lambda t: self._emit("mcabyzum:status", {"text": t}),
             )
+            save_runtime_config(self.config)
             server = self.config["server"]
             new_version = self.config.get("minecraft_version", version)
             if new_version != version:
@@ -299,7 +306,7 @@ class Api:
                     callback=self._callback(),
                     java=java_path,
                 )
-            write_mod_config(minecraft_dir(), server, auto_join=False)
+            write_mod_config(minecraft_dir(), server, auto_join=True)
 
             ram = self.config.get("java", {})
             min_ram = int(ram.get("min_ram_mb", 2048))

@@ -697,7 +697,7 @@ export class ModrinthService {
       launcherRevision: nextRevision,
       forgeBuild: input.forgeBuild ?? '43.3.0',
       server: {
-        host: input.serverHost,
+        host: this.resolveConnectHost(input.serverHost),
         port: input.serverPort,
         name: input.serverName,
       },
@@ -1252,6 +1252,23 @@ export class ModrinthService {
     return '/api/backend';
   }
 
+  private resolveConnectHost(host?: string): string {
+    const manifestHost = host?.trim();
+    const publicHost = process.env.NEXT_PUBLIC_MC_SERVER_HOST?.trim();
+    const placeholder =
+      !manifestHost ||
+      /^play\.mcabyzum\.com$/i.test(manifestHost) ||
+      /^mcabyzum\.com$/i.test(manifestHost);
+    if (publicHost && placeholder) {
+      return publicHost;
+    }
+    return manifestHost || publicHost || 'localhost';
+  }
+
+  private resolveLauncherConnectHost(manifest: ModDeployManifest): string {
+    return this.resolveConnectHost(manifest.server?.host);
+  }
+
   private buildMcabyzumLauncherConfig(
     serverId: string,
     manifest: NonNullable<Awaited<ReturnType<typeof this.getDeployManifest>>>,
@@ -1259,6 +1276,8 @@ export class ModrinthService {
   ): Record<string, unknown> {
     const gameVersion = manifest.gameVersion || '1.19.2';
     const forgeBuild = manifest.forgeBuild || '43.3.0';
+    const connectHost = this.resolveLauncherConnectHost(manifest);
+    const connectPort = manifest.server?.port ?? 25569;
     return {
       app_name: 'MCABYZUM',
       brand: 'abyzum',
@@ -1267,7 +1286,11 @@ export class ModrinthService {
       forge_version: `${gameVersion}-${forgeBuild}`,
       panel_server_id: serverId,
       backend_url: this.resolvePublicBackendUrl(panelUrl),
-      server: manifest.server,
+      server: {
+        host: connectHost,
+        port: connectPort,
+        name: manifest.server?.name || 'Abyzum Server',
+      },
       java: { min_ram_mb: 2048, max_ram_mb: 4096 },
       offline_default_name: 'Player',
       launcherRevision: manifest.launcherRevision ?? 0,

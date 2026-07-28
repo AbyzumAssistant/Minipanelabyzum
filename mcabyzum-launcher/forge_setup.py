@@ -39,7 +39,7 @@ def find_bundled_mod(bundle_root: Path) -> Path | None:
     return None
 
 
-def write_mod_config(mc_dir: Path, server: dict, auto_join: bool = False) -> None:
+def write_mod_config(mc_dir: Path, server: dict, auto_join: bool = True) -> None:
     cfg_dir = mc_dir / "config"
     cfg_dir.mkdir(parents=True, exist_ok=True)
     data = {
@@ -102,7 +102,7 @@ def ensure_forge_and_mod(
             "Falta mcabyzum-login.jar (Forge). Compila el mod en /mod (gradlew build)."
         )
 
-    write_mod_config(mc_dir, server, auto_join=False)
+    write_mod_config(mc_dir, server, auto_join=True)
     if status:
         status(f"Cliente Forge listo: {launch_version}")
     return launch_version
