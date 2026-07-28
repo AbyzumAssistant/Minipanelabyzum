@@ -29,10 +29,30 @@ function resolveServerId(): string {
 function apiBase(): string {
   const configured = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content?.trim();
   if (configured) return configured.replace(/\/$/, '');
-  if (window.location.pathname.includes('/landing/')) {
+  if (window.location.pathname.includes('/landing')) {
     return `${window.location.origin}/api/backend`;
   }
   return '/api/backend';
+}
+
+function usernameKey(serverId: string): string {
+  return `mcabyzum:${serverId}:username`;
+}
+
+function readUsername(serverId: string): string {
+  try {
+    return localStorage.getItem(usernameKey(serverId)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveUsername(serverId: string, value: string): void {
+  try {
+    localStorage.setItem(usernameKey(serverId), value.trim());
+  } catch {
+    /* ignore */
+  }
 }
 
 async function fetchManifest(serverId: string): Promise<DeployManifest> {
@@ -47,85 +67,173 @@ function launcherDownloadUrl(serverId: string): string {
   return `${apiBase()}/modrinth/deploy/${encodeURIComponent(serverId)}/launcher/download`;
 }
 
-function renderLoading(root: HTMLElement): void {
-  root.innerHTML = '<div class="loading">Cargando servidor…</div>';
-}
-
-function renderError(root: HTMLElement, message: string): void {
-  root.innerHTML = `<div class="shell"><div class="card"><p class="error">${message}</p></div></div>`;
-}
-
-function renderPage(root: HTMLElement, manifest: DeployManifest, serverId: string): void {
-  const serverName = manifest.server?.name ?? serverId;
-  const address = manifest.server
-    ? `${manifest.server.host}:${manifest.server.port}`
-    : '—';
-  const modCount = manifest.mods?.length ?? 0;
-  const forge = manifest.forgeBuild ?? '43.3.0';
-  const version = manifest.gameVersion ?? '1.19.2';
-
-  root.innerHTML = `
-    <div class="shell">
-      <div class="hero">
-        <img class="logo" src="./icon.svg" alt="MCABYZUM" width="88" height="88" />
-        <div>
-          <h1 class="title">${escapeHtml(serverName)}</h1>
-          <p class="subtitle">Descarga el launcher con mods, resource pack y conexión lista para entrar al servidor.</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <p class="note">Forge ${escapeHtml(version)} · Build ${escapeHtml(forge)} · Revisión launcher v${manifest.launcherRevision ?? 0}</p>
-        <div class="stats">
-          <div class="stat"><strong>${modCount}</strong><span>Mods incluidos</span></div>
-          <div class="stat"><strong>${escapeHtml(version)}</strong><span>Minecraft</span></div>
-          <div class="stat"><strong>Forge</strong><span>Mod loader</span></div>
-        </div>
-        <p class="note">Dirección del servidor</p>
-        <p class="address">${escapeHtml(address)}</p>
-        <div class="actions">
-          <button class="btn btn-primary" id="download-btn">Descargar MCABYZUM Launcher (.zip)</button>
-          <button class="btn btn-secondary" id="copy-btn">Copiar IP</button>
-        </div>
-        <p class="note" style="margin-top:16px">
-          1. Descarga y extrae el ZIP.<br/>
-          2. Ejecuta <strong>MCABYZUM-Launcher.exe</strong>.<br/>
-          3. Se instalan los mods y se copia la IP al portapapeles.<br/>
-          4. Abre Minecraft → Multijugador → Directo y conecta.
-        </p>
-      </div>
-    </div>
-  `;
-
-  const downloadBtn = document.getElementById('download-btn');
-  downloadBtn?.addEventListener('click', () => {
-    if (!(downloadBtn instanceof HTMLButtonElement)) return;
-    downloadBtn.disabled = true;
-    downloadBtn.textContent = 'Preparando descarga…';
-    window.location.href = launcherDownloadUrl(serverId);
-    window.setTimeout(() => {
-      downloadBtn.disabled = false;
-      downloadBtn.textContent = 'Descargar MCABYZUM Launcher (.zip)';
-    }, 4000);
-  });
-
-  document.getElementById('copy-btn')?.addEventListener('click', async () => {
-    if (!manifest.server) return;
-    const text = `${manifest.server.host}:${manifest.server.port}`;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      window.prompt('Copia la IP:', text);
-    }
-  });
-}
-
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function renderLoading(root: HTMLElement): void {
+  root.innerHTML = '<div class="loading">Cargando launcher…</div>';
+}
+
+function renderError(root: HTMLElement, message: string): void {
+  root.innerHTML = `
+    <div class="error-shell">
+      <div class="launcher-window">
+        <div class="titlebar"><span>MCABYZUM</span><div class="titlebar-dots"><span></span><span></span><span></span></div></div>
+        <div class="launcher-body">
+          <p class="status-line error">${escapeHtml(message)}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setStatus(message: string, isError = false): void {
+  const el = document.getElementById('status-line');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle('error', isError);
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: string): void {
+  const serverName = manifest.server?.name ?? serverId;
+  const version = manifest.gameVersion ?? '1.19.2';
+  const forge = manifest.forgeBuild ?? '43.3.0';
+  const savedName = readUsername(serverId);
+  const address = manifest.server ? `${manifest.server.host}:${manifest.server.port}` : '';
+
+  root.innerHTML = `
+    <div class="launcher-window">
+      <div class="titlebar">
+        <span>MCABYZUM</span>
+        <div class="titlebar-dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="launcher-body">
+        <div class="top-row">
+          <div class="brand">
+            <img src="./icon.svg" alt="MCABYZUM" width="42" height="42" />
+            <span class="brand-name">mcabyzum</span>
+          </div>
+          <div class="badges">
+            <span class="badge">${escapeHtml(version)}</span>
+            <span class="badge badge-server">SERVIDOR</span>
+          </div>
+        </div>
+
+        <h1 class="hero-title">${escapeHtml(serverName)}</h1>
+        <p class="hero-subtitle">Minecraft ${escapeHtml(version)}</p>
+        <p class="hero-copy">
+          Descarga Java + Minecraft Forge ${escapeHtml(version)} + login Abyzum.
+          Sin menú vanilla: solo entrar al servidor.
+        </p>
+
+        <label class="field-label" for="player-name">NOMBRE EN EL SERVIDOR</label>
+        <input
+          id="player-name"
+          class="field-input"
+          type="text"
+          maxlength="16"
+          autocomplete="username"
+          placeholder="Tu nick de Minecraft"
+          value="${escapeHtml(savedName)}"
+        />
+
+        <div class="actions">
+          <button class="btn btn-enter" id="enter-btn" type="button">ENTRAR</button>
+          <button class="btn btn-repair" id="repair-btn" type="button">INSPECCIONAR / REPARAR</button>
+        </div>
+
+        <p class="status-line" id="status-line"></p>
+      </div>
+    </div>
+  `;
+
+  const playerInput = document.getElementById('player-name') as HTMLInputElement | null;
+  const enterBtn = document.getElementById('enter-btn');
+  const repairBtn = document.getElementById('repair-btn');
+
+  playerInput?.addEventListener('change', () => {
+    if (playerInput) saveUsername(serverId, playerInput.value);
+  });
+
+  enterBtn?.addEventListener('click', async () => {
+    if (!(enterBtn instanceof HTMLButtonElement)) return;
+    const nick = playerInput?.value.trim() ?? '';
+    if (!nick) {
+      setStatus('Escribe tu nombre en el servidor antes de entrar.', true);
+      playerInput?.focus();
+      return;
+    }
+
+    saveUsername(serverId, nick);
+    enterBtn.disabled = true;
+    enterBtn.textContent = 'PREPARANDO…';
+    setStatus('Descargando launcher con mods y resource pack…');
+
+    if (address) {
+      const copied = await copyText(address);
+      if (copied) {
+        setStatus(`Descarga iniciada. IP copiada: ${address}`);
+      }
+    }
+
+    window.location.href = launcherDownloadUrl(serverId);
+
+    window.setTimeout(() => {
+      enterBtn.disabled = false;
+      enterBtn.textContent = 'ENTRAR';
+      if (address) {
+        setStatus(`Extrae el ZIP, ejecuta MCABYZUM-Launcher.exe y conecta a ${address}`);
+      }
+    }, 5000);
+  });
+
+  repairBtn?.addEventListener('click', async () => {
+    if (!(repairBtn instanceof HTMLButtonElement)) return;
+    repairBtn.disabled = true;
+    repairBtn.textContent = 'COMPROBANDO…';
+    setStatus('Comprobando manifest, mods y revisión del launcher…');
+
+    try {
+      const fresh = await fetchManifest(serverId);
+      const modCount = fresh.mods?.length ?? 0;
+      if (modCount === 0) {
+        setStatus('Este servidor aún no tiene mods publicados en el panel.', true);
+        return;
+      }
+
+      const revision = fresh.launcherRevision ?? manifest.launcherRevision ?? 0;
+      const host = fresh.server?.host ?? manifest.server?.host ?? '—';
+      const port = fresh.server?.port ?? manifest.server?.port ?? '—';
+      setStatus(`OK · ${modCount} mods · Forge ${fresh.gameVersion ?? version} · rev. ${revision} · ${host}:${port}`);
+
+      if (address) {
+        await copyText(`${host}:${port}`);
+      }
+    } catch {
+      setStatus('No se pudo comprobar el manifest. Revisa que el servidor esté publicado en el panel.', true);
+    } finally {
+      repairBtn.disabled = false;
+      repairBtn.textContent = 'INSPECCIONAR / REPARAR';
+    }
+  });
+
+  if (address) {
+    setStatus(`Forge ${forge} · ${manifest.mods.length} mods · ${address}`);
+  }
 }
 
 async function boot(): Promise<void> {
@@ -142,12 +250,12 @@ async function boot(): Promise<void> {
   try {
     const manifest = await fetchManifest(serverId);
     if (!manifest.mods?.length) {
-      renderError(root, 'Este servidor aún no tiene mods publicados en el panel.');
+      renderError(root, 'Este servidor aún no tiene mods publicados. Pulsa Publicar despliegue en el panel.');
       return;
     }
-    renderPage(root, manifest, serverId);
+    renderLauncher(root, manifest, serverId);
   } catch {
-    renderError(root, 'No se pudo cargar la información del servidor.');
+    renderError(root, 'No se pudo cargar la información del servidor. Comprueba el manifest en el panel.');
   }
 }
 

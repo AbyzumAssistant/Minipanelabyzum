@@ -20,6 +20,7 @@ import {
   type ModrinthResolvedMod,
 } from '@/services/mods/mod-deploy.service';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
+import { getPublicEnv } from '@/lib/public-env';
 import type { ServerConfig } from '@/lib/types/types';
 
 interface ModDeployTabProps {
@@ -39,7 +40,8 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
   const [requireResourcePack, setRequireResourcePack] = useState(config.requireResourcePack ?? true);
   const [lockClientResourcePacks, setLockClientResourcePacks] = useState(true);
 
-  const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${serverId}` : `/join/${serverId}`;
+  const landingBase = getPublicEnv('NEXT_PUBLIC_LANDING_URL').replace(/\/$/, '');
+  const joinUrl = `${landingBase}/landing?server=${encodeURIComponent(serverId)}`;
 
   const loadManifest = useCallback(async () => {
     setLoading(true);
@@ -194,7 +196,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
               {t('copy')}
             </Button>
             <Button type="button" variant="outline" size="sm" asChild className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-              <Link href={`/join/${serverId}`} target="_blank">
+              <Link href={joinUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-1" />
                 {t('modDeployPreview')}
               </Link>
