@@ -22,6 +22,8 @@ import {
   type ModDeployManifest,
 } from '@/services/mods/mod-deploy.service';
 import type { ServerConfig } from '@/lib/types/types';
+import { isHorizonsProfile } from '@/lib/server-profile';
+import { HORIZONS_MODPACK_SLUG } from '@/lib/horizons-defaults';
 
 interface LandingTabProps {
   serverId: string;
@@ -69,23 +71,33 @@ export const LandingTab: FC<LandingTabProps> = ({ serverId, config }) => {
 
   const ensureLauncherReady = async () => {
     const slugs = getModSlugs();
-    if (slugs.length === 0) {
+    const modpackSlug =
+      manifest?.modpackSlug ||
+      config.modrinthModpack?.split(':')[0]?.trim() ||
+      (isHorizonsProfile(config) ? HORIZONS_MODPACK_SLUG : undefined);
+    const hasDeployedMods = (manifest?.mods?.length ?? 0) > 0;
+    const horizonsActive =
+      manifest?.profile === 'horizons' || isHorizonsProfile(config) || Boolean(modpackSlug);
+
+    if (!hasDeployedMods && slugs.length === 0 && !modpackSlug) {
       throw new Error(t('landingNoMods'));
     }
-    if (!manifest?.server?.host) {
-      return syncLauncherManifest(serverId, {
-        slugs,
-        serverHost: resolveMcServerHost(config.proxyHostname || undefined),
-        serverPort: Number(config.port || DEFAULT_MC_SERVER_PORT),
-        serverName: config.serverName || serverId,
-        forgeBuild: config.forgeBuild || '43.3.0',
-        resourcePackUrl: config.resourcePackUrl || undefined,
-        resourcePackSha1: config.resourcePackSha1 || undefined,
-        requireResourcePack: config.requireResourcePack,
-        lockClientResourcePacks: true,
-      });
+
+    if (manifest?.server?.host && hasDeployedMods) {
+      return manifest;
     }
-    return manifest;
+
+    return syncLauncherManifest(serverId, {
+      slugs: modpackSlug ? [modpackSlug] : slugs,
+      serverHost: resolveMcServerHost(config.proxyHostname || undefined),
+      serverPort: Number(config.port || DEFAULT_MC_SERVER_PORT),
+      serverName: config.serverName || serverId,
+      forgeBuild: horizonsActive ? undefined : config.forgeBuild || '43.3.0',
+      resourcePackUrl: config.resourcePackUrl || undefined,
+      resourcePackSha1: config.resourcePackSha1 || undefined,
+      requireResourcePack: config.requireResourcePack,
+      lockClientResourcePacks: true,
+    });
   };
 
   const handleBuild = async () => {
@@ -119,8 +131,9 @@ export const LandingTab: FC<LandingTabProps> = ({ serverId, config }) => {
       URL.revokeObjectURL(url);
       mcToast.success(t('landingDownloadStarted'));
       await loadState();
-    } catch {
-      mcToast.error(t('landingBuildError'));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('landingBuildError');
+      mcToast.error(message || t('landingBuildError'));
     } finally {
       setDownloading(false);
     }

@@ -3,9 +3,10 @@ import { applyHorizonsDefaults, HORIZONS_MODPACK_SLUG } from './horizons-default
 import type { ServerConfig } from './types/types';
 
 export function isHorizonsProfile(config: Partial<ServerConfig>): boolean {
+  const modpackSlug = (config.modrinthModpack ?? '').split(':')[0];
   return (
     config.serverType === 'MODRINTH' &&
-    (config.modrinthModpack === HORIZONS_MODPACK_SLUG ||
+    (modpackSlug === HORIZONS_MODPACK_SLUG ||
       (config.minecraftVersion === '1.20.1' && config.modrinthLoader === 'fabric'))
   );
 }

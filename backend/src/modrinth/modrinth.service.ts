@@ -1428,7 +1428,7 @@ export class ModrinthService {
 
   async buildLauncherPack(serverId: string, panelUrl?: string): Promise<LauncherBuildStatus> {
     const manifest = await this.getDeployManifest(serverId);
-    if (!manifest || manifest.mods.length === 0) {
+    if (!manifest || (manifest.mods?.length ?? 0) === 0) {
       throw new HttpException(
         'Publica mods y sincroniza el launcher antes de construir el instalador.',
         HttpStatus.BAD_REQUEST,

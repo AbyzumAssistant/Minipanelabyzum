@@ -23,6 +23,7 @@ import {
   type ModrinthResolvedMod,
 } from '@/services/mods/mod-deploy.service';
 import { HORIZONS_MODPACK_SLUG } from '@/lib/horizons-defaults';
+import { isHorizonsProfile } from '@/lib/server-profile';
 import { apiRestartServer, getServerStatus, updateServerConfig } from '@/services/docker/fetchs';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
 import { getPublicEnv } from '@/lib/public-env';
@@ -51,8 +52,8 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
   const joinUrl = `${landingBase}/landing/?server=${encodeURIComponent(serverId)}`;
   const horizonsActive =
     manifest?.profile === 'horizons' ||
-    config.serverType === 'MODRINTH' ||
-    config.modrinthModpack === HORIZONS_MODPACK_SLUG;
+    isHorizonsProfile(config) ||
+    manifest?.modpackSlug === HORIZONS_MODPACK_SLUG;
 
   const loadManifest = useCallback(async () => {
     setLoading(true);
