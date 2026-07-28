@@ -8,6 +8,14 @@ export interface ForgeModCatalogCategory {
 export const FORGE_119_GAME_VERSION = '1.19.2';
 export const FORGE_119_LOADER = 'forge';
 
+/** Slugs alternativos cuando el id curado no coincide con Modrinth. */
+export const FORGE_119_SLUG_ALIASES: Record<string, string> = {};
+
+export function normalizeForge119Slug(slug: string): string {
+  const key = slug.trim().toLowerCase();
+  return FORGE_119_SLUG_ALIASES[key] ?? key;
+}
+
 /** Modrinth search terms used by "Ver más" per category. */
 export const FORGE_119_CATEGORY_SEARCH: Record<string, string> = {
   aventura: 'adventure exploration structures',

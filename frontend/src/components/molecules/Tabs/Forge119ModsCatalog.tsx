@@ -18,6 +18,7 @@ import {
   saveDeployManifest,
   type CatalogModEntry,
   type CompatibilityWarning,
+  type ModSelectionReport,
   type ForgeCatalogCategoryMeta,
 } from '@/services/mods/mod-deploy.service';
 import type { ServerConfig } from '@/lib/types/types';
@@ -44,6 +45,7 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
   const [resolving, setResolving] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
   const [compatWarnings, setCompatWarnings] = useState<CompatibilityWarning[]>([]);
+  const [selectionReport, setSelectionReport] = useState<ModSelectionReport | null>(null);
   const [checkingCompat, setCheckingCompat] = useState(false);
   const compatTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,9 +133,23 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
       .split(',')
       .map((entry) => entry.split(':')[0]?.trim())
       .filter(Boolean);
-    if (fromConfig.length > 0) {
-      setSelectedSlugs(new Set(fromConfig));
-    }
+    if (fromConfig.length === 0) return;
+
+    let cancelled = false;
+    checkModsCompatibility(fromConfig)
+      .then((report) => {
+        if (cancelled) return;
+        setSelectedSlugs(new Set(report.compatibleSlugs));
+        setSelectionReport(report);
+        setCompatWarnings(report.warnings);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedSlugs(new Set(fromConfig));
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [config.modrinthProjects]);
 
   const loadCategoryPage = useCallback(
@@ -173,6 +189,7 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
 
     if (slugs.length === 0) {
       setCompatWarnings([]);
+      setSelectionReport(null);
       return;
     }
 
@@ -180,9 +197,11 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
       setCheckingCompat(true);
       try {
         const result = await checkModsCompatibility(slugs);
+        setSelectionReport(result);
         setCompatWarnings(result.warnings);
       } catch {
         setCompatWarnings([]);
+        setSelectionReport(null);
       } finally {
         setCheckingCompat(false);
       }
@@ -224,15 +243,25 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
       return;
     }
 
-    const blocking = compatWarnings.filter((w) => w.type === 'incompatible' || w.type === 'no_version');
-    if (blocking.length > 0) {
-      mcToast.error(blocking[0].message);
-      return;
-    }
-
     setResolving(true);
     try {
-      const resolved = await resolveModsWithDependencies(slugs);
+      const report = await checkModsCompatibility(slugs);
+      const compatibleSlugs = report.compatibleSlugs;
+
+      if (compatibleSlugs.length === 0) {
+        mcToast.error(t('forgeCatalogNoneCompatible'));
+        setSelectionReport(report);
+        setCompatWarnings(report.warnings);
+        return;
+      }
+
+      if (report.skipped.length > 0) {
+        setSelectedSlugs(new Set(compatibleSlugs));
+        setSelectionReport(report);
+        setCompatWarnings(report.warnings);
+      }
+
+      const resolved = await resolveModsWithDependencies(compatibleSlugs);
       updateConfig('modrinthProjects', resolved.modrinthProjects);
       updateConfig('modrinthLoader', 'forge');
       updateConfig('modrinthDownloadDependencies', 'required');
@@ -246,11 +275,21 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
       });
 
       const depCount = resolved.mods.filter((m) => m.isDependency).length;
-      mcToast.success(
-        depCount > 0
-          ? `${t('forgeCatalogApplied')} (+${depCount} ${t('dependencies')})`
-          : t('forgeCatalogApplied'),
-      );
+      const rootCount = resolved.mods.filter((m) => !m.isDependency).length;
+
+      if (report.skipped.length > 0) {
+        mcToast.success(
+          t('forgeCatalogAppliedPartial')
+            .replace('{applied}', String(rootCount))
+            .replace('{skipped}', String(report.skipped.length)),
+        );
+      } else {
+        mcToast.success(
+          depCount > 0
+            ? `${t('forgeCatalogApplied')} (+${depCount} ${t('dependencies')})`
+            : t('forgeCatalogApplied'),
+        );
+      }
     } catch {
       mcToast.error(t('forgeCatalogApplyError'));
     } finally {
@@ -343,8 +382,8 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
       </div>
 
       <div className="p-5 space-y-5">
-        {(compatWarnings.length > 0 || checkingCompat) && (
-          <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 space-y-1.5">
+        {(selectionReport || compatWarnings.length > 0 || checkingCompat) && (
+          <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 space-y-3">
             <p className="text-xs font-medium text-white flex items-center gap-2">
               {checkingCompat ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
@@ -353,7 +392,33 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
               )}
               {t('forgeCatalogCompatWarning')}
             </p>
+
+            {!checkingCompat && selectionReport && selectionReport.compatibleSlugs.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-emerald-400 pl-5">
+                  {t('forgeCatalogReadyTitle')} ({selectionReport.compatibleSlugs.length})
+                </p>
+                <p className="text-xs text-zinc-400 pl-5 line-clamp-3">
+                  {selectionReport.compatibleSlugs.join(', ')}
+                </p>
+              </div>
+            )}
+
+            {!checkingCompat && selectionReport && selectionReport.skipped.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-amber-400 pl-5">
+                  {t('forgeCatalogSkippedTitle')} ({selectionReport.skipped.length})
+                </p>
+                {selectionReport.skipped.map((entry) => (
+                  <p key={entry.slug} className="text-xs text-zinc-400 pl-5">
+                    {entry.message}
+                  </p>
+                ))}
+              </div>
+            )}
+
             {!checkingCompat &&
+              !selectionReport &&
               compatWarnings.map((warning, index) => (
                 <p key={`${warning.modA}-${warning.modB ?? index}`} className="text-xs text-zinc-400 pl-5">
                   {warning.message}

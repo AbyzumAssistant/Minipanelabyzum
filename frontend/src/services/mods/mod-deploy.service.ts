@@ -57,10 +57,23 @@ export interface ForgeCatalogSearchPage {
 }
 
 export interface CompatibilityWarning {
-  type: 'incompatible' | 'no_version' | 'client_only';
+  type: 'incompatible' | 'no_version' | 'client_only' | 'not_found';
   modA: string;
   modB?: string;
   message: string;
+}
+
+export interface SkippedMod {
+  slug: string;
+  name?: string;
+  reason: 'not_found' | 'no_version' | 'client_only' | 'incompatible';
+  message: string;
+}
+
+export interface ModSelectionReport {
+  compatibleSlugs: string[];
+  skipped: SkippedMod[];
+  warnings: CompatibilityWarning[];
 }
 
 export interface ModrinthResolvedMod {
@@ -134,7 +147,7 @@ export const searchForge119Mods = async (
 };
 
 export const checkModsCompatibility = async (slugs: string[]) => {
-  const { data } = await api.post<{ warnings: CompatibilityWarning[] }>(
+  const { data } = await api.post<ModSelectionReport>(
     '/modrinth/mods/check-compatibility',
     { slugs },
     { timeout: CATALOG_TIMEOUT },

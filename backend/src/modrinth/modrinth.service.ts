@@ -10,6 +10,7 @@ import {
   FORGE_119_MOD_CATALOG,
   FORGE_119_CATEGORY_SEARCH,
   ForgeModCatalogCategory,
+  normalizeForge119Slug,
 } from './forge-mod-catalog';
 import {
   PAPER_PLUGIN_CATALOG,
@@ -170,10 +171,23 @@ export interface ForgeCatalogSearchPage {
 }
 
 export interface CompatibilityWarning {
-  type: 'incompatible' | 'no_version' | 'client_only';
+  type: 'incompatible' | 'no_version' | 'client_only' | 'not_found';
   modA: string;
   modB?: string;
   message: string;
+}
+
+export interface SkippedMod {
+  slug: string;
+  name?: string;
+  reason: 'not_found' | 'no_version' | 'client_only' | 'incompatible';
+  message: string;
+}
+
+export interface ModSelectionReport {
+  compatibleSlugs: string[];
+  skipped: SkippedMod[];
+  warnings: CompatibilityWarning[];
 }
 
 interface ModrinthSearchHit {
@@ -396,54 +410,88 @@ export class ModrinthService {
     };
   }
 
-  async checkModsCompatibility(slugs: string[]): Promise<{ warnings: CompatibilityWarning[] }> {
-    const unique = [...new Set(slugs.map((s) => s.trim().toLowerCase()).filter(Boolean))];
-    const warnings: CompatibilityWarning[] = [];
+  async checkModsCompatibility(slugs: string[]): Promise<ModSelectionReport> {
+    const unique = [
+      ...new Set(slugs.map((s) => normalizeForge119Slug(s)).filter(Boolean)),
+    ];
+    const skipped: SkippedMod[] = [];
     const resolved = new Map<
       string,
       { name: string; projectId: string; version: ModrinthVersion }
     >();
 
-    for (const slug of unique) {
-      const project = await this.fetchProject(slug);
-      if (!project) {
-        warnings.push({
-          type: 'no_version',
-          modA: slug,
-          message: `${slug} no existe en Modrinth`,
-        });
+    const checks = await this.mapPool(
+      unique,
+      async (slug) => {
+        const project = await this.fetchProject(slug);
+        if (!project) {
+          return {
+            slug,
+            skipped: {
+              slug,
+              reason: 'not_found' as const,
+              message: `${slug} no existe en Modrinth`,
+            },
+          };
+        }
+
+        const version = await this.fetchBestVersion(
+          project.id,
+          FORGE_119_GAME_VERSION,
+          FORGE_119_LOADER,
+        );
+        if (!version) {
+          return {
+            slug: project.slug,
+            skipped: {
+              slug: project.slug,
+              name: project.title,
+              reason: 'no_version' as const,
+              message: `${project.title} no tiene versión Forge ${FORGE_119_GAME_VERSION}`,
+            },
+          };
+        }
+
+        if (project.server_side === 'unsupported' && project.client_side === 'required') {
+          return {
+            slug: project.slug,
+            skipped: {
+              slug: project.slug,
+              name: project.title,
+              reason: 'client_only' as const,
+              message: `${project.title} es solo cliente y no conviene en el servidor`,
+            },
+          };
+        }
+
+        return {
+          slug: project.slug,
+          resolved: {
+            name: project.title,
+            projectId: project.id,
+            version,
+          },
+        };
+      },
+      2,
+    );
+
+    for (const result of checks) {
+      if ('skipped' in result && result.skipped) {
+        skipped.push(result.skipped);
         continue;
       }
-
-      const version = await this.fetchBestVersion(
-        project.id,
-        FORGE_119_GAME_VERSION,
-        FORGE_119_LOADER,
-      );
-      if (!version) {
-        warnings.push({
-          type: 'no_version',
-          modA: project.slug,
-          message: `${project.title} no tiene versión Forge ${FORGE_119_GAME_VERSION}`,
-        });
-        continue;
+      if ('resolved' in result && result.resolved) {
+        resolved.set(result.slug, result.resolved);
       }
-
-      if (project.server_side === 'unsupported' && project.client_side === 'required') {
-        warnings.push({
-          type: 'client_only',
-          modA: project.slug,
-          message: `${project.title} es solo cliente y no conviene en el servidor`,
-        });
-      }
-
-      resolved.set(project.slug, { name: project.title, projectId: project.id, version });
     }
 
     const slugByProjectId = new Map<string, string>();
     for (const [slug, data] of resolved) {
       slugByProjectId.set(data.projectId, slug);
     }
+
+    let compatibleSlugs = [...resolved.keys()];
 
     for (const [slug, data] of resolved) {
       for (const dep of data.version.dependencies) {
@@ -458,19 +506,26 @@ export class ModrinthService {
           }
         }
 
-        if (otherSlug && unique.includes(otherSlug)) {
-          const otherName = resolved.get(otherSlug)?.name ?? otherSlug;
-          warnings.push({
-            type: 'incompatible',
-            modA: slug,
-            modB: otherSlug,
-            message: `${data.name} declara incompatible a ${otherName}`,
-          });
-        }
+        if (!otherSlug || !compatibleSlugs.includes(otherSlug)) continue;
+
+        compatibleSlugs = compatibleSlugs.filter((s) => s !== otherSlug);
+        const otherName = resolved.get(otherSlug)?.name ?? otherSlug;
+        skipped.push({
+          slug: otherSlug,
+          name: otherName,
+          reason: 'incompatible',
+          message: `${data.name} declara incompatible a ${otherName}`,
+        });
       }
     }
 
-    return { warnings };
+    const warnings: CompatibilityWarning[] = skipped.map((entry) => ({
+      type: entry.reason,
+      modA: entry.slug,
+      message: entry.message,
+    }));
+
+    return { compatibleSlugs, skipped, warnings };
   }
 
   /** @deprecated Use getForge119CatalogMeta + getForge119CategoryMods */
@@ -505,7 +560,9 @@ export class ModrinthService {
     const loader = input.loader ?? FORGE_119_LOADER;
     const resolved = new Map<string, ModrinthResolvedMod>();
     const requiredByMap = new Map<string, Set<string>>();
-    const queue = [...new Set(input.slugs.map((s) => s.trim().toLowerCase()).filter(Boolean))];
+    const queue = [
+      ...new Set(input.slugs.map((s) => normalizeForge119Slug(s)).filter(Boolean)),
+    ];
     const visitedSlugs = new Set<string>();
 
     while (queue.length > 0) {
@@ -974,7 +1031,8 @@ export class ModrinthService {
   }
 
   private async resolveCatalogEntry(slug: string): Promise<CatalogModEntry> {
-    const project = await this.fetchProject(slug);
+    const normalizedSlug = normalizeForge119Slug(slug);
+    const project = await this.fetchProject(normalizedSlug);
     if (!project) {
       return {
         slug,
@@ -1034,7 +1092,7 @@ export class ModrinthService {
       while (index < items.length) {
         const current = index++;
         results[current] = await fn(items[current]);
-        await new Promise((resolve) => setTimeout(resolve, 80));
+        await new Promise((resolve) => setTimeout(resolve, 120));
       }
     };
 
@@ -1065,11 +1123,26 @@ export class ModrinthService {
     };
   }
 
-  private async fetchProject(slug: string): Promise<ModrinthProject | null> {
+  private async fetchProject(slug: string, attempt = 0): Promise<ModrinthProject | null> {
+    const normalizedSlug = normalizeForge119Slug(slug);
     try {
-      const { data } = await this.apiClient.get<ModrinthProject>(`/project/${encodeURIComponent(slug)}`);
+      const { data } = await this.apiClient.get<ModrinthProject>(
+        `/project/${encodeURIComponent(normalizedSlug)}`,
+      );
       return data;
-    } catch {
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 404) return null;
+        if ((status === 429 || status === 503) && attempt < 4) {
+          await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+          return this.fetchProject(slug, attempt + 1);
+        }
+      }
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        return this.fetchProject(slug, attempt + 1);
+      }
       return null;
     }
   }
