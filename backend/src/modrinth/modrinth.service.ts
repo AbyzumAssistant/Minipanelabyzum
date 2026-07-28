@@ -273,6 +273,7 @@ interface ModrinthVersion {
   project_id: string;
   name: string;
   version_number: string;
+  featured?: boolean;
   game_versions: string[];
   loaders: string[];
   files: ModrinthVersionFile[];
@@ -1557,7 +1558,7 @@ export class ModrinthService {
     const slug = input.slug.trim().toLowerCase();
     const project = await this.fetchProject(slug);
     if (!project) {
-      throw new NotFoundException(`Modpack no encontrado: ${slug}`);
+      throw new NotFoundException(`Modpack no encontrado en Modrinth: ${slug}`);
     }
 
     let version: ModrinthVersion | null = null;
@@ -1566,6 +1567,7 @@ export class ModrinthService {
     } else {
       const response = await this.apiClient.get<ModrinthVersion[]>(`/project/${project.id}/version`);
       version =
+        response.data.find((entry) => entry.featured) ??
         response.data.find((entry) => entry.version_number) ??
         response.data[0] ??
         null;

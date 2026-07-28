@@ -31,16 +31,20 @@ export class ModrinthController {
 
     if (source.modpackSlug) {
       const isHorizons = source.profile === 'horizons' || source.modpackSlug === 'horizons1';
+      const modpackRef = source.modpackVersion
+        ? `${source.modpackSlug}:${source.modpackVersion}`
+        : source.modpackSlug;
       await this.dockerComposeService.updateServerConfig(serverId, {
         serverType: 'MODRINTH',
-        modrinthModpack: source.modpackSlug,
-        modrinthLoader: source.loader,
+        modrinthModpack: modpackRef,
+        modrinthLoader: source.loader || 'fabric',
+        fabricLoaderVersion: source.fabricLoaderVersion || '',
         minecraftVersion: source.gameVersion,
         onlineMode: false,
         initMemory: isHorizons ? '8G' : '6G',
         maxMemory: isHorizons ? '10G' : '8G',
         memoryReservation: isHorizons ? '8G' : '6G',
-        motd: isHorizons ? 'abyzumMC Horizons' : `abyzumMC ${source.modpackTitle ?? source.modpackSlug}`,
+        motd: isHorizons ? 'mcabyzum · Horizons' : `abyzumMC ${source.modpackTitle ?? source.modpackSlug}`,
         modrinthDownloadDependencies: 'required',
       });
       return;
@@ -178,31 +182,47 @@ export class ModrinthController {
     @Param('serverId') serverId: string,
     @Body() body: PublishModpackDto,
   ) {
-    const manifest = await this.modrinthService.publishModpackDeploy({
-      serverId,
-      slug: body.slug,
-      versionId: body.versionId,
-      serverHost: body.serverHost,
-      serverPort: body.serverPort,
-      serverName: body.serverName,
-      lockClientResourcePacks: body.lockClientResourcePacks,
-      profile: body.profile,
-    });
+    let manifest: ModDeployManifest;
+    try {
+      manifest = await this.modrinthService.publishModpackDeploy({
+        serverId,
+        slug: body.slug,
+        versionId: body.versionId,
+        serverHost: body.serverHost,
+        serverPort: body.serverPort,
+        serverName: body.serverName,
+        lockClientResourcePacks: body.lockClientResourcePacks,
+        profile: body.profile,
+      });
+    } catch (error) {
+      const message =
+        error instanceof HttpException
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Error desconocido publicando modpack';
+      throw new HttpException(message, HttpStatus.BAD_GATEWAY);
+    }
 
-    const isHorizons = body.slug === 'horizons1' || manifest.profile === 'horizons';
-    await this.dockerComposeService.updateServerConfig(serverId, {
-      serverType: 'MODRINTH',
-      modrinthModpack: body.slug,
-      modrinthLoader: manifest.loader,
-      minecraftVersion: manifest.gameVersion,
-      onlineMode: false,
-      initMemory: isHorizons ? '8G' : '6G',
-      maxMemory: isHorizons ? '10G' : '8G',
-      memoryReservation: isHorizons ? '8G' : '6G',
-      motd: isHorizons ? 'abyzumMC Horizons' : `abyzumMC ${manifest.modpackTitle ?? body.slug}`,
-      serverName: body.serverName,
-      modrinthDownloadDependencies: 'required',
-    });
+    if (!manifest.mods?.length) {
+      throw new HttpException(
+        'El modpack se resolvió sin mods en el manifiesto. Revisa la conexión con Modrinth.',
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+
+    try {
+      await this.syncManifestToServer(serverId, manifest);
+      await this.dockerComposeService.updateServerConfig(serverId, {
+        serverName: body.serverName,
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new HttpException(
+        `Modpack guardado pero falló aplicar la config del servidor: ${detail}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
 
     return manifest;
   }

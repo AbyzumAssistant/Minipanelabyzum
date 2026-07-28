@@ -1,5 +1,6 @@
 'use client';
 
+import axios from 'axios';
 import { FC, useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -168,8 +169,14 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       });
 
       updateConfig('serverType', 'MODRINTH');
-      updateConfig('modrinthModpack', HORIZONS_MODPACK_SLUG);
+      updateConfig(
+        'modrinthModpack',
+        saved.modpackVersion ? `${saved.modpackSlug}:${saved.modpackVersion}` : HORIZONS_MODPACK_SLUG,
+      );
       updateConfig('modrinthLoader', 'fabric');
+      if (saved.fabricLoaderVersion) {
+        updateConfig('fabricLoaderVersion', saved.fabricLoaderVersion);
+      }
       updateConfig('minecraftVersion', saved.gameVersion);
       updateConfig('initMemory', '8G');
       updateConfig('maxMemory', '10G');
@@ -184,8 +191,22 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
 
       setManifest(saved);
       mcToast.success(t('horizonsModpackPublished').replace('{count}', String(saved.mods.length)));
-    } catch {
-      mcToast.error(t('horizonsModpackPublishError'));
+    } catch (error) {
+      const fallback = t('horizonsModpackPublishError');
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message ?? error.response?.data?.error;
+        if (Array.isArray(message)) {
+          mcToast.error(message.join('\n'));
+        } else if (typeof message === 'string' && message.trim()) {
+          mcToast.error(message);
+        } else {
+          mcToast.error(fallback);
+        }
+      } else if (error instanceof Error && error.message.trim()) {
+        mcToast.error(error.message);
+      } else {
+        mcToast.error(fallback);
+      }
     } finally {
       setPublishingModpack(false);
     }

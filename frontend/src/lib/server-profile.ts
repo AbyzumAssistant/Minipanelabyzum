@@ -12,7 +12,7 @@ export function isHorizonsProfile(config: Partial<ServerConfig>): boolean {
 
 export function isLegacyForgeMcabyzum(serverId: string, config: Partial<ServerConfig>): boolean {
   return (
-    serverId === 'mcabyzum' &&
+    serverId.toLowerCase() === 'mcabyzum' &&
     !isHorizonsProfile(config) &&
     (config.serverType === 'FORGE' ||
       config.minecraftVersion === '1.19.2' ||

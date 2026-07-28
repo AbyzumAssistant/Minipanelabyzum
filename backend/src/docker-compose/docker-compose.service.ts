@@ -1147,6 +1147,8 @@ export class DockerComposeService {
     if (config.serverType === 'MODRINTH') {
       env['MODRINTH_MODPACK'] = config.modrinthModpack ?? '';
       if (config.modrinthLoader) env['MODRINTH_LOADER'] = config.modrinthLoader;
+      if (config.fabricLoaderVersion) env['FABRIC_LOADER_VERSION'] = config.fabricLoaderVersion;
+      env['VERSION'] = String(config.minecraftVersion || '1.20.1');
     } else if (config.modrinthLoader) {
       env['MODRINTH_LOADER'] = config.modrinthLoader;
     }
