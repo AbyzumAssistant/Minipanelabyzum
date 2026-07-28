@@ -35,11 +35,13 @@ services:
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
         BACKEND_PROXY_URL: ${BACKEND_PROXY_URL:-http://backend:8091}
     expose:
-      - '3000'
+      - '4000'
     ports:
-      - '3000'
+      - '4000'
     environment:
       - NODE_ENV=production
+      - PORT=4000
+      - HOSTNAME=0.0.0.0
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-/api/backend}
       - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}

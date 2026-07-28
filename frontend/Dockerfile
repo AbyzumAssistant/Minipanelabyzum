@@ -67,11 +67,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
-EXPOSE 3000
-ENV PORT=3000
+EXPOSE 4000
+ENV PORT=4000
 ENV HOSTNAME="0.0.0.0"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD node -e "const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''; const path = basePath || '/'; require('http').get('http://localhost:3000' + path, (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))" || exit 1
+  CMD node -e "const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''; const path = basePath || '/'; require('http').get('http://localhost:4000' + path, (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))" || exit 1
 
 CMD ["node", "server.js"]
