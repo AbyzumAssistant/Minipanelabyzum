@@ -19,6 +19,7 @@ import {
   type ModDeployManifest,
   type ModrinthResolvedMod,
 } from '@/services/mods/mod-deploy.service';
+import { apiRestartServer, getServerStatus, updateServerConfig } from '@/services/docker/fetchs';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
 import { getPublicEnv } from '@/lib/public-env';
 import type { ServerConfig } from '@/lib/types/types';
@@ -148,6 +149,21 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
         lockClientResourcePacks,
       });
 
+      await updateServerConfig(serverId, {
+        onlineMode: false,
+        minecraftVersion: '1.19.2',
+        forgeBuild: config.forgeBuild || '43.3.0',
+        serverType: 'FORGE',
+      });
+
+      const { status } = await getServerStatus(serverId);
+      if (status === 'running') {
+        await apiRestartServer(serverId);
+      }
+
+      updateConfig('onlineMode', false);
+      updateConfig('minecraftVersion', '1.19.2');
+      updateConfig('forgeBuild', config.forgeBuild || '43.3.0');
       updateConfig('modrinthProjects', saved.modrinthProjects);
       updateConfig('modrinthLoader', 'forge');
       updateConfig('modrinthDownloadDependencies', 'required');

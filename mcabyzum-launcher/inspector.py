@@ -42,7 +42,7 @@ class InspectReport:
 
 
 ALLOWED_VERSION_PREFIXES = ("1.19",)  # keep only Wild Update line we own
-WRONG_VERSION_MARKERS = ("1.19.1", "1.19.2", "1.19.3", "1.19.4")
+LOCKED_CLIENT_VERSION = "1.19.2"
 
 
 def _dir_size_mb(path: Path) -> float:
@@ -98,7 +98,7 @@ def _sha1_file(path: Path) -> str | None:
 
 
 class GameInspector:
-    def __init__(self, mc_dir: Path, target_version: str = "1.19"):
+    def __init__(self, mc_dir: Path, target_version: str = LOCKED_CLIENT_VERSION):
         self.mc_dir = Path(mc_dir)
         self.target_version = target_version.strip()
         self.versions_dir = self.mc_dir / "versions"
@@ -113,12 +113,10 @@ class GameInspector:
         return name.lower().startswith(forge_prefix)
 
     def _is_wrong_version(self, name: str) -> bool:
-        lower = name.lower()
         if self._is_allowed_version(name):
             return False
-        if any(marker in lower for marker in WRONG_VERSION_MARKERS):
-            return True
-        if lower.startswith("1.19.") and not lower.startswith(f"{self.target_version.lower()}-forge-"):
+        lower = name.lower()
+        if lower.startswith("1.19") or "forge" in lower:
             return True
         return False
 

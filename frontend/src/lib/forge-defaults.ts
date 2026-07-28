@@ -3,8 +3,8 @@ import type { ServerConfig, ServerEdition } from './types/types';
 export const FORGE_119_PROFILE = {
   edition: 'JAVA' as ServerEdition,
   serverType: 'FORGE' as const,
-  minecraftVersion: '1.19',
-  forgeBuild: '41.1.0',
+  minecraftVersion: '1.19.2',
+  forgeBuild: '43.3.0',
   dockerImage: 'java17',
   useAikarFlags: true,
   initMemory: '2G',
@@ -13,11 +13,11 @@ export const FORGE_119_PROFILE = {
   cpuLimit: '2',
   viewDistance: '8',
   simulationDistance: '6',
-  motd: 'abyzumMC Forge 1.19',
+  motd: 'abyzumMC Forge 1.19.2',
   gameMode: 'survival' as const,
   difficulty: 'normal' as const,
   maxPlayers: '20',
-  onlineMode: true,
+  onlineMode: false,
   enableRcon: true,
   port: '25569',
   modrinthLoader: 'forge',
@@ -25,11 +25,17 @@ export const FORGE_119_PROFILE = {
 };
 
 export function applyForge119Defaults(config: Partial<ServerConfig>): ServerConfig {
-  return {
+  const merged = {
     ...FORGE_119_PROFILE,
     ...(config as ServerConfig),
     id: config.id ?? 'Server',
     serverName: config.serverName ?? 'Forge 1.19 Server',
     port: config.port ?? FORGE_119_PROFILE.port,
   };
+  if (merged.serverType === 'FORGE' || merged.modrinthLoader === 'forge') {
+    merged.onlineMode = false;
+    merged.minecraftVersion = FORGE_119_PROFILE.minecraftVersion;
+    merged.forgeBuild = merged.forgeBuild || FORGE_119_PROFILE.forgeBuild;
+  }
+  return merged;
 }

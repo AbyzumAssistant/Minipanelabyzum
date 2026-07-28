@@ -423,10 +423,6 @@ class Api:
                     java=java_path,
                     forge_version=forge_version,
                 )
-            if "1.19.2" in launch_version:
-                raise RuntimeError(
-                    "Se detectó Minecraft 1.19.2. Pulsa Inspeccionar / reparar para instalar 1.19 Forge."
-                )
             write_mod_config(minecraft_dir(), server, auto_join=True)
             refresh_game_server_config(self.config)
 

@@ -1169,7 +1169,7 @@ export const es: Record<TranslationKey, string> = {
   launcherSyncDesc: 'Publica mods y resource pack para el launcher de escritorio. Los jugadores sincronizan solos al abrir el juego.',
   launcherSyncButton: 'Actualizar launcher',
   launcherSyncRevision: 'Versión del launcher',
-  launcherSyncSuccess: 'Launcher actualizado — los clientes sincronizarán al entrar',
+  launcherSyncSuccess: 'Launcher actualizado (Forge 1.19.2, modo offline). Servidor reiniciado si estaba activo.',
   launcherSyncError: 'No se pudo actualizar el launcher',
   landingTabTitle: 'Landing',
   landingTabDesc: 'Página pública y paquete descargable del launcher con mods, resource pack e IP del servidor ya configurados.',

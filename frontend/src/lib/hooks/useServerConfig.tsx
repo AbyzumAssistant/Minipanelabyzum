@@ -19,7 +19,7 @@ const defaultConfig: ServerConfig = applyForge119Defaults({
   difficulty: 'hard',
   maxPlayers: '10',
   ops: '',
-  onlineMode: true,
+  onlineMode: false,
   pvp: true,
   commandBlock: true,
   allowFlight: true,

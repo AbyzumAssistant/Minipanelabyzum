@@ -934,6 +934,10 @@ export class DockerComposeService {
       ...config,
     } as ServerConfig);
 
+    if (updatedConfig.serverType === 'FORGE' || updatedConfig.modrinthLoader === 'forge') {
+      updatedConfig.onlineMode = false;
+    }
+
     await this.generateDockerComposeFile(updatedConfig, proxyEnabled);
     return updatedConfig;
   }

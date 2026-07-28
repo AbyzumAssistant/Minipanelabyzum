@@ -110,8 +110,8 @@ async function copyText(text: string): Promise<boolean> {
 
 function renderLauncher(root: HTMLElement, manifest: DeployManifest, serverId: string): void {
   const serverName = manifest.server?.name ?? serverId;
-  const version = manifest.gameVersion ?? '1.19';
-  const forge = manifest.forgeBuild ?? '41.1.0';
+  const version = manifest.gameVersion ?? '1.19.2';
+  const forge = manifest.forgeBuild ?? '43.3.0';
   const savedName = readUsername(serverId);
   const address = manifest.server ? `${manifest.server.host}:${manifest.server.port}` : '';
 

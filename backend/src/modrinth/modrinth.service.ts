@@ -695,7 +695,7 @@ export class ModrinthService {
       modrinthProjects: resolved.modrinthProjects,
       lockClientResourcePacks: input.lockClientResourcePacks ?? true,
       launcherRevision: nextRevision,
-      forgeBuild: input.forgeBuild ?? '41.1.0',
+      forgeBuild: input.forgeBuild ?? '43.3.0',
       server: {
         host: this.resolveConnectHost(input.serverHost),
         port: input.serverPort,
@@ -1274,8 +1274,8 @@ export class ModrinthService {
     manifest: NonNullable<Awaited<ReturnType<typeof this.getDeployManifest>>>,
     panelUrl?: string,
   ): Record<string, unknown> {
-    const gameVersion = manifest.gameVersion || '1.19';
-    const forgeBuild = manifest.forgeBuild || '41.1.0';
+    const gameVersion = manifest.gameVersion || '1.19.2';
+    const forgeBuild = manifest.forgeBuild || '43.3.0';
     const connectHost = this.resolveLauncherConnectHost(manifest);
     const connectPort = manifest.server?.port ?? 25569;
     return {

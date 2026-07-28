@@ -12,7 +12,7 @@ import minecraft_launcher_lib
 
 StatusFn = Callable[[str], None]
 
-FORGE_VERSION = "1.19-41.1.0"
+FORGE_VERSION = "1.19.2-43.3.0"
 MOD_JAR_NAME = "mcabyzum-login.jar"
 
 
