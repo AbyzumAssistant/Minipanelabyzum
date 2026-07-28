@@ -1,14 +1,14 @@
-# Minipanelabyzum — build local (frontend proxea /api/backend → backend:8091).
-# Dockploy: compose file = docker-compose.dockploy.yml (recomendado) o docker-compose.yml
-# Domains → servicio frontend, puerto contenedor 3000 (NO hace falta FRONTEND_PORT en el host)
+# Minipanelabyzum — mismo stack que docker-compose.dockploy.yml (+ mc-router opcional).
+# Dokploy: compose file = docker-compose.dockploy.yml (recomendado) o este archivo.
+# Domains → frontend:3000. No publicar puertos en el host (Traefik usa dokploy-network).
 
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - '${BACKEND_PORT:-8091}:8091'
+    expose:
+      - '8091'
     env_file:
       - path: .env
         required: false
@@ -26,7 +26,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${BASE_DIR:-./data}/data:/app/data
     networks:
-      - minepanel-network
+      - internal
     restart: unless-stopped
 
   frontend:
@@ -36,29 +36,28 @@ services:
       args:
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
         BACKEND_PROXY_URL: ${BACKEND_PROXY_URL:-http://backend:8091}
-    # Sin ports en el host: Dokploy/Traefik entra por la red Docker al puerto 3000 del contenedor.
     expose:
       - '3000'
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-/api/backend}
       - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-}
-      - NEXT_PUBLIC_DEFAULT_LANGUAGE=${NEXT_PUBLIC_DEFAULT_LANGUAGE:-es}
-      - NEXT_PUBLIC_MC_SERVER_HOST=${NEXT_PUBLIC_MC_SERVER_HOST:-65.75.202.124}
-      - DEFAULT_LANDING_SERVER=${DEFAULT_LANDING_SERVER:-mcabyzum}
-      - COMPOSE_PROJECT=${COMPOSE_PROJECT:-mcabyzum}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - PANEL_URL=${PANEL_URL:-}
       - LANDING_URL=${LANDING_URL:-}
       - PANEL_HOST=${PANEL_HOST:-}
       - LANDING_HOST=${LANDING_HOST:-}
+      - DEFAULT_LANDING_SERVER=${DEFAULT_LANDING_SERVER:-mcabyzum}
+      - COMPOSE_PROJECT=${COMPOSE_PROJECT:-mcabyzum}
+      - NEXT_PUBLIC_DEFAULT_LANGUAGE=${NEXT_PUBLIC_DEFAULT_LANGUAGE:-es}
+      - NEXT_PUBLIC_MC_SERVER_HOST=${NEXT_PUBLIC_MC_SERVER_HOST:-65.75.202.124}
     depends_on:
       - backend
     networks:
-      - minepanel-network
+      - internal
+      - dokploy-network
     restart: unless-stopped
 
-  # MC Proxy Router - Routes Minecraft Java Edition traffic by hostname (optional)
-  # Enable with: docker compose --profile proxy up -d
   mc-router:
     image: itzg/mc-router:1.39.1
     container_name: mc-router
@@ -72,10 +71,11 @@ services:
     volumes:
       - ${BASE_DIR:-./data}/data/proxy:/data
     networks:
-      - minepanel-network
+      - internal
     restart: unless-stopped
 
 networks:
-  minepanel-network:
-    name: minepanel-network
+  internal:
     driver: bridge
+  dokploy-network:
+    external: true

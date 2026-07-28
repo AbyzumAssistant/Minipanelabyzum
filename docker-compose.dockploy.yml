@@ -1,17 +1,16 @@
-# Compose para Dockploy — construye desde el código local (fork MCABYZUM).
-# En Dockploy: Compose file = docker-compose.dockploy.yml
-# Env: pegar variables de .env.dockploy.example (FRONTEND_URL, FRONTEND_PORT=3001, etc.)
-# Domains (servicio frontend, puerto contenedor 3000, HTTPS on):
-#   - mccubneuifbu23d.abyzum.com  → panel
-#   - mc.abyzum.com                 → landing
+# Dokploy — Compose file: docker-compose.dockploy.yml
+# Domains → servicio frontend, puerto contenedor 3000, HTTPS on:
+#   mccubneuifbu23d.abyzum.com = panel (/admin)
+#   mc.abyzum.com              = landing (/)
+# Env: .env.dockploy.example (NO uses FRONTEND_PORT en el host)
 
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - '${BACKEND_PORT:-8091}:8091'
+    expose:
+      - '8091'
     env_file:
       - path: .env
         required: false
@@ -29,7 +28,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${BASE_DIR:-./data}/data:/app/data
     networks:
-      - minepanel-network
+      - internal
     restart: unless-stopped
 
   frontend:
@@ -39,7 +38,6 @@ services:
       args:
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
         BACKEND_PROXY_URL: ${BACKEND_PROXY_URL:-http://backend:8091}
-    # Sin ports en el host: evita conflicto con otros servicios en :3000 del VPS.
     expose:
       - '3000'
     environment:
@@ -58,10 +56,12 @@ services:
     depends_on:
       - backend
     networks:
-      - minepanel-network
+      - internal
+      - dokploy-network
     restart: unless-stopped
 
 networks:
-  minepanel-network:
-    name: minepanel-network
+  internal:
     driver: bridge
+  dokploy-network:
+    external: true
