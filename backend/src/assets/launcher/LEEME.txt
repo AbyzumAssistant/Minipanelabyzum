@@ -1,9 +1,10 @@
 MCABYZUM — Launcher Forge 1.19.2
 
 1. Descarga MCABYZUM-{servidor}.exe desde el panel (Landing).
-2. Ejecuta el .exe y escribe tu nick.
-3. La primera vez descarga Java, Minecraft 1.19.2, Forge y los mods del panel.
-4. Si ya tienes todo instalado y no hay mods nuevos, entra directo al servidor.
+2. Ejecuta el .exe (un solo archivo, no necesitas carpeta _internal).
+3. Escribe tu nick y pulsa Entrar.
+4. La primera vez descarga Java, Minecraft 1.19.2, Forge y los mods del panel.
+5. Si ya tienes todo al día, entra directo al servidor.
 
 Los archivos del juego se guardan en:
   %APPDATA%\.mcabyzum\userdata\game
