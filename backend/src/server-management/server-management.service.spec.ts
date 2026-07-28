@@ -124,15 +124,26 @@ describe('ServerManagementService', () => {
       expect(status).toBe('stopped');
     });
 
-    it('should return "starting" when container is restarting', async () => {
+    it('should return "starting" when container is restarting once', async () => {
       (fs.pathExists as jest.Mock).mockResolvedValue(true);
       mockExec
         .mockResolvedValueOnce({ stdout: 'container123\n' })
-        .mockResolvedValueOnce({ stdout: 'restarting\n' });
+        .mockResolvedValueOnce({ stdout: 'restarting|1|false|0|\n' });
 
       const status = await service.getServerStatus('myserver');
 
       expect(status).toBe('starting');
+    });
+
+    it('should return "stopped" when container is crash-looping', async () => {
+      (fs.pathExists as jest.Mock).mockResolvedValue(true);
+      mockExec
+        .mockResolvedValueOnce({ stdout: 'container123\n' })
+        .mockResolvedValueOnce({ stdout: 'restarting|3|false|1|\n' });
+
+      const status = await service.getServerStatus('myserver');
+
+      expect(status).toBe('stopped');
     });
   });
 

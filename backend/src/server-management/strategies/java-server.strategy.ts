@@ -178,6 +178,8 @@ export class JavaServerStrategy implements IServerStrategy {
   private addForgeConfig(env: Record<string, string>, config: ServerConfig): void {
     if (config.forgeBuild) env['FORGE_VERSION'] = config.forgeBuild;
     env['VERSION'] = String(config.minecraftVersion);
+    // Forge + mods Modrinth: primera descarga puede tardar varios minutos
+    env['ENABLE_ROLLING_LOGS'] = env['ENABLE_ROLLING_LOGS'] ?? 'true';
   }
 
   private addNeoforgeConfig(env: Record<string, string>, config: ServerConfig): void {

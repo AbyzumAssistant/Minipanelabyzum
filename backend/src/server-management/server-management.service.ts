@@ -27,6 +27,10 @@ const DOCKER_COMMANDS = {
   // Single command to get all running containers stats at once (much faster)
   STATS_ALL: String.raw`docker stats --no-stream --format "{{.Container}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"`,
   LOGS: (containerId: string, lines: number) => `docker logs --tail ${lines} --timestamps ${containerId} 2>&1`,
+  LOGS_PREVIOUS: (containerId: string, lines: number) =>
+    `docker logs --previous --tail ${lines} --timestamps ${containerId} 2>&1`,
+  INSPECT_STATE: (containerId: string) =>
+    String.raw`docker inspect --format="{{.State.Status}}|{{.RestartCount}}|{{.State.OOMKilled}}|{{.State.ExitCode}}|{{.State.Error}}" ${containerId}`,
   // Bedrock: TODO - commands disabled due to TTY/permission issues with send-command
   EXEC_BEDROCK: (_containerId: string, _command: string) => {
     return `echo "Commands not supported for Bedrock servers yet"`;
@@ -647,6 +651,109 @@ export class ServerManagementService {
     }
   }
 
+  private async inspectContainerState(containerId: string): Promise<{
+    status: string;
+    restartCount: number;
+    oomKilled: boolean;
+    exitCode: number;
+    error?: string;
+  }> {
+    try {
+      const { stdout } = await execAsync(DOCKER_COMMANDS.INSPECT_STATE(containerId));
+      const [status = '', restartCount = '0', oomKilled = 'false', exitCode = '0', error = ''] = stdout.trim().split('|');
+      return {
+        status: status.toLowerCase(),
+        restartCount: Number.parseInt(restartCount, 10) || 0,
+        oomKilled: oomKilled === 'true',
+        exitCode: Number.parseInt(exitCode, 10) || 0,
+        error: error || undefined,
+      };
+    } catch {
+      const { stdout } = await execAsync(DOCKER_COMMANDS.INSPECT_STATUS(containerId));
+      return {
+        status: stdout.trim().toLowerCase(),
+        restartCount: 0,
+        oomKilled: false,
+        exitCode: 0,
+      };
+    }
+  }
+
+  private buildContainerDiagnostics(state: {
+    status: string;
+    restartCount: number;
+    oomKilled: boolean;
+    exitCode: number;
+    error?: string;
+  }): string {
+    const lines: string[] = [];
+
+    if (state.restartCount >= 2) {
+      lines.push(
+        `[Minepanel] El contenedor se reinició ${state.restartCount} veces. Revisa memoria RAM, mods incompatibles y los logs de abajo.`,
+      );
+    }
+    if (state.oomKilled) {
+      lines.push('[Minepanel] El contenedor fue detenido por falta de memoria (OOM). Baja INIT_MEMORY / MAX_MEMORY en la configuración.');
+    }
+    if (state.error) {
+      lines.push(`[Minepanel] Error de Docker: ${state.error}`);
+    }
+    if (state.status === 'exited' && state.exitCode !== 0) {
+      lines.push(`[Minepanel] El contenedor terminó con código de salida ${state.exitCode}.`);
+    }
+    if (state.status === 'created') {
+      lines.push('[Minepanel] El contenedor fue creado pero no arrancó. Verifica puertos ocupados (25565) y recursos del VPS.');
+    }
+
+    return lines.length > 0 ? `${lines.join('\n')}\n\n` : '';
+  }
+
+  private async fetchContainerLogs(containerId: string, lines: number, since?: string): Promise<string> {
+    let logs = '';
+
+    if (since) {
+      const { stdout, stderr } = await this.executeProcess('docker', ['logs', '--since', since, '--timestamps', containerId]);
+      logs = stdout + stderr;
+    } else {
+      const result = await execAsync(DOCKER_COMMANDS.LOGS(containerId, lines));
+      logs = result.stdout;
+    }
+
+    if (!logs.trim()) {
+      try {
+        const previous = await execAsync(DOCKER_COMMANDS.LOGS_PREVIOUS(containerId, lines));
+        if (previous.stdout.trim()) {
+          logs = `[Minepanel] Logs del intento anterior de arranque:\n${previous.stdout}`;
+        }
+      } catch {
+        // No previous container logs available
+      }
+    }
+
+    return logs;
+  }
+
+  private mapContainerStateToStatus(state: {
+    status: string;
+    restartCount: number;
+    oomKilled: boolean;
+    exitCode: number;
+    error?: string;
+  }): ServerStatus {
+    if (state.status.includes('running')) return 'running';
+    if (state.status.includes('restarting')) {
+      return state.restartCount >= 2 ? 'stopped' : 'starting';
+    }
+    if (state.status.includes('created')) {
+      return state.error ? 'stopped' : 'starting';
+    }
+    if (state.status.includes('paused') || state.status.includes('exited') || state.status.includes('dead')) {
+      return 'stopped';
+    }
+    return 'stopped';
+  }
+
   private async findContainerId(serverId: string): Promise<string> {
     if (!this.validateServerId(serverId)) {
       throw new Error(`Invalid server ID: ${serverId}`);
@@ -761,13 +868,8 @@ export class ServerManagementService {
       const containerId = await this.findContainerId(serverId);
 
       if (containerId) {
-        const { stdout } = await execAsync(DOCKER_COMMANDS.INSPECT_STATUS(containerId));
-        const status = stdout.trim().toLowerCase();
-
-        if (status.includes('restarting') || status.includes('created')) return 'starting';
-        if (status.includes('running')) return 'running';
-        if (status.includes('paused') || status.includes('exited') || status.includes('dead')) return 'stopped';
-        return 'stopped';
+        const state = await this.inspectContainerState(containerId);
+        return this.mapContainerStateToStatus(state);
       }
 
       if (await fs.pathExists(this.getDockerComposePath(serverId))) {
@@ -1140,7 +1242,9 @@ export class ServerManagementService {
         };
       }
 
-      const { stdout: logs } = await execAsync(DOCKER_COMMANDS.LOGS(containerId, lines));
+      const state = await this.inspectContainerState(containerId);
+      const diagnostics = this.buildContainerDiagnostics(state);
+      const logs = diagnostics + (await this.fetchContainerLogs(containerId, lines));
       const logAnalysis = this.analyzeLogs(logs);
 
       return {
@@ -1236,13 +1340,14 @@ export class ServerManagementService {
         };
       }
 
+      const state = await this.inspectContainerState(containerId);
+      const diagnostics = this.buildContainerDiagnostics(state);
       let logs: string;
+
       if (since) {
-        const { stdout, stderr } = await this.executeProcess('docker', ['logs', '--since', since, '--timestamps', containerId]);
-        logs = stdout + stderr;
+        logs = diagnostics + (await this.fetchContainerLogs(containerId, lines, since));
       } else {
-        const result = await execAsync(`docker logs --tail ${lines} --timestamps ${containerId} 2>&1`);
-        logs = result.stdout;
+        logs = diagnostics + (await this.fetchContainerLogs(containerId, lines));
       }
       const logAnalysis = this.analyzeLogs(logs);
 
