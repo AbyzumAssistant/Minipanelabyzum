@@ -111,14 +111,27 @@ def normalize_server(server: dict | None, fallback: dict | None = None) -> dict:
     return {"host": host, "port": port, "name": name or "Abyzum Server"}
 
 
+def _load_bundled_deploy() -> dict:
+    for candidate in _deploy_config_candidates():
+        data = _read_json(candidate)
+        if data:
+            return data
+    return {}
+
+
 def merge_deploy_config(deploy: dict, overlay: dict | None = None) -> dict:
+    bundled = _load_bundled_deploy()
+    authority = bundled or deploy
     merged = dict(deploy)
+    for key in DEPLOY_CONFIG_KEYS:
+        if key in authority:
+            merged[key] = authority[key]
     for key, value in (overlay or {}).items():
         if key not in DEPLOY_CONFIG_KEYS:
             merged[key] = value
     merged["server"] = normalize_server(
         merged.get("server"),
-        deploy.get("server"),
+        authority.get("server"),
     )
     return merged
 
@@ -370,6 +383,7 @@ class Api:
                     )
 
             server = self.config["server"]
+            forge_version = self.config.get("forge_version")
             self._emit("mcabyzum:status", {"text": "Instalando Forge + login Abyzum…"})
             launch_version = ensure_forge_and_mod(
                 minecraft_dir(),
@@ -379,6 +393,7 @@ class Api:
                 status=lambda t: self._emit("mcabyzum:status", {"text": t}),
                 callback=self._callback(),
                 java=java_path,
+                forge_version=forge_version,
             )
 
             self.config = sync_from_panel(
@@ -390,9 +405,14 @@ class Api:
             self.config = merge_deploy_config(self.config)
             save_runtime_config(self.config)
             server = self.config["server"]
-            new_version = self.config.get("minecraft_version", version)
-            if new_version != version:
-                version = new_version
+            version = self.config["minecraft_version"]
+            forge_version = self.config.get("forge_version")
+            expected_forge_prefix = f"{version}-forge-"
+            if expected_forge_prefix not in launch_version:
+                self._emit(
+                    "mcabyzum:status",
+                    {"text": f"Reinstalando Forge {forge_version}…"},
+                )
                 launch_version = ensure_forge_and_mod(
                     minecraft_dir(),
                     version,
@@ -401,6 +421,11 @@ class Api:
                     status=lambda t: self._emit("mcabyzum:status", {"text": t}),
                     callback=self._callback(),
                     java=java_path,
+                    forge_version=forge_version,
+                )
+            if "1.19.2" in launch_version:
+                raise RuntimeError(
+                    "Se detectó Minecraft 1.19.2. Pulsa Inspeccionar / reparar para instalar 1.19 Forge."
                 )
             write_mod_config(minecraft_dir(), server, auto_join=True)
             refresh_game_server_config(self.config)

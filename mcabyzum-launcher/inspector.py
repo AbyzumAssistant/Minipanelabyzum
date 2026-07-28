@@ -42,6 +42,7 @@ class InspectReport:
 
 
 ALLOWED_VERSION_PREFIXES = ("1.19",)  # keep only Wild Update line we own
+WRONG_VERSION_MARKERS = ("1.19.1", "1.19.2", "1.19.3", "1.19.4")
 
 
 def _dir_size_mb(path: Path) -> float:
@@ -99,11 +100,27 @@ def _sha1_file(path: Path) -> str | None:
 class GameInspector:
     def __init__(self, mc_dir: Path, target_version: str = "1.19"):
         self.mc_dir = Path(mc_dir)
-        self.target_version = target_version
+        self.target_version = target_version.strip()
         self.versions_dir = self.mc_dir / "versions"
         self.libraries_dir = self.mc_dir / "libraries"
         self.assets_dir = self.mc_dir / "assets"
         self.runtime_dir = self.mc_dir / "runtime"
+
+    def _is_allowed_version(self, name: str) -> bool:
+        if name == self.target_version:
+            return True
+        forge_prefix = f"{self.target_version.lower()}-forge-"
+        return name.lower().startswith(forge_prefix)
+
+    def _is_wrong_version(self, name: str) -> bool:
+        lower = name.lower()
+        if self._is_allowed_version(name):
+            return False
+        if any(marker in lower for marker in WRONG_VERSION_MARKERS):
+            return True
+        if lower.startswith("1.19.") and not lower.startswith(f"{self.target_version.lower()}-forge-"):
+            return True
+        return False
 
     def inspect(self) -> InspectReport:
         report = InspectReport(ok=True)
@@ -127,18 +144,20 @@ class GameInspector:
                 if not entry.is_dir():
                     continue
                 name = entry.name
-                # Keep vanilla 1.19 + Forge profile for our locked client
-                if name == self.target_version:
+                if self._is_allowed_version(name):
                     continue
-                if "forge" in name.lower() and self.target_version in name:
-                    continue
-                # Remove fabric leftovers
+                severity = "error" if self._is_wrong_version(name) else "warn"
+                message = (
+                    f"Versión incorrecta detectada ({name}) — se quitará e instalará {self.target_version} Forge."
+                    if self._is_wrong_version(name)
+                    else f"Versión conflictiva detectada: {name}"
+                )
                 report.ok = False
                 report.issues.append(
                     Issue(
                         "foreign_version",
-                        "warn",
-                        f"Versión conflictiva detectada: {name}",
+                        severity,
+                        message,
                         fixable=True,
                         path=str(entry),
                     )
@@ -281,9 +300,7 @@ class GameInspector:
         for entry in list(self.versions_dir.iterdir()):
             if not entry.is_dir():
                 continue
-            if entry.name == self.target_version:
-                continue
-            if "forge" in entry.name.lower() and self.target_version in entry.name:
+            if self._is_allowed_version(entry.name):
                 continue
             if status:
                 status(f"Eliminando versión conflictiva: {entry.name}")
@@ -338,7 +355,11 @@ class GameInspector:
         report.removed.extend(self.purge_foreign_versions(status))
         report.fixed.extend(self.clean_locks_and_junk(status))
 
-        needs_reinstall = any(
+        removed_wrong = any(
+            self._is_wrong_version(name) for name in report.removed
+        )
+
+        needs_reinstall = removed_wrong or any(
             i.code
             in {
                 "missing_version",

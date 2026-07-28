@@ -16,8 +16,15 @@ const inspectLog = document.getElementById("inspect-log");
 let progressMax = 100;
 let boot = null;
 let autoStarted = false;
+let apiReady = false;
+
+function setControlsEnabled(enabled) {
+  enterBtn.disabled = !enabled;
+  repairBtn.disabled = !enabled;
+}
 
 function setBusy(busy, text) {
+  if (!apiReady) return;
   enterBtn.disabled = busy;
   repairBtn.disabled = busy;
   statusBlock.hidden = !busy && !text;
@@ -60,8 +67,15 @@ function renderInspect(detail) {
 }
 
 async function waitApi() {
-  for (let i = 0; i < 80; i += 1) {
-    if (window.pywebview?.api) return window.pywebview.api;
+  for (let i = 0; i < 120; i += 1) {
+    const api = window.pywebview?.api;
+    if (
+      api &&
+      typeof api.get_bootstrap === "function" &&
+      typeof api.enter_server === "function"
+    ) {
+      return api;
+    }
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error("Launcher API no disponible");
@@ -119,8 +133,12 @@ window.addEventListener("mcabyzum:launched", (e) => {
 });
 
 window.addEventListener("pywebviewready", async () => {
+  setControlsEnabled(false);
+  statusBlock.hidden = false;
+  statusText.textContent = "Conectando con el launcher…";
   try {
     const api = await waitApi();
+    apiReady = true;
     boot = await api.get_bootstrap();
     versionPill.textContent = boot.version;
     serverPill.textContent = boot.serverHost;
@@ -137,14 +155,19 @@ window.addEventListener("pywebviewready", async () => {
     if (boot.autoEnter && !autoStarted) {
       autoStarted = true;
       await startEnter(boot.username);
+      return;
     }
+    setControlsEnabled(true);
   } catch (err) {
+    apiReady = false;
+    setControlsEnabled(false);
     statusBlock.hidden = false;
     statusText.textContent = String(err);
   }
 });
 
 enterBtn.addEventListener("click", async () => {
+  if (!apiReady) return;
   await startEnter(usernameInput.value);
 });
 
@@ -153,6 +176,7 @@ changeNameBtn.addEventListener("click", () => {
 });
 
 repairBtn.addEventListener("click", async () => {
+  if (!apiReady) return;
   setBusy(true, "Inspeccionando errores…");
   barFill.style.width = "15%";
   try {
@@ -170,3 +194,5 @@ repairBtn.addEventListener("click", async () => {
 usernameInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") enterBtn.click();
 });
+
+setControlsEnabled(false);

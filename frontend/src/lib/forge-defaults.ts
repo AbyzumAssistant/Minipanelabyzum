@@ -3,8 +3,8 @@ import type { ServerConfig, ServerEdition } from './types/types';
 export const FORGE_119_PROFILE = {
   edition: 'JAVA' as ServerEdition,
   serverType: 'FORGE' as const,
-  minecraftVersion: '1.19.2',
-  forgeBuild: '43.3.0',
+  minecraftVersion: '1.19',
+  forgeBuild: '41.1.0',
   dockerImage: 'java17',
   useAikarFlags: true,
   initMemory: '2G',

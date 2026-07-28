@@ -6,6 +6,7 @@ import { ModrinthService } from './modrinth.service';
 import { SearchModrinthModsQueryDto } from './dto/search-mods.query.dto';
 import { ResolveModsDto, SaveDeployManifestDto, SyncLauncherManifestDto } from './dto/resolve-mods.dto';
 import { BuildPluginPackDto, SavePluginManifestDto } from './dto/resolve-plugins.dto';
+import { FORGE_119_GAME_VERSION, FORGE_119_LOADER } from './forge-mod-catalog';
 
 @Controller('modrinth')
 @UseGuards(JwtAuthGuard)
@@ -87,8 +88,8 @@ export class ModrinthController {
 
     const manifest = await this.modrinthService.saveDeployManifest({
       serverId,
-      gameVersion: '1.19.2',
-      loader: 'forge',
+      gameVersion: FORGE_119_GAME_VERSION,
+      loader: FORGE_119_LOADER,
       updatedAt: new Date().toISOString(),
       mods: resolved.mods,
       modrinthProjects: resolved.modrinthProjects,

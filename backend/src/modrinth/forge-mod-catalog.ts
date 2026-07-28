@@ -5,7 +5,7 @@ export interface ForgeModCatalogCategory {
   slugs: string[];
 }
 
-export const FORGE_119_GAME_VERSION = '1.19.2';
+export const FORGE_119_GAME_VERSION = '1.19';
 export const FORGE_119_LOADER = 'forge';
 
 /** Slugs alternativos cuando el id curado no coincide con Modrinth. */

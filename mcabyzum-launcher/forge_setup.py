@@ -12,7 +12,7 @@ import minecraft_launcher_lib
 
 StatusFn = Callable[[str], None]
 
-FORGE_VERSION = "1.19.2-43.3.0"
+FORGE_VERSION = "1.19-41.1.0"
 MOD_JAR_NAME = "mcabyzum-login.jar"
 
 
@@ -59,12 +59,13 @@ def ensure_forge_and_mod(
     status: StatusFn | None = None,
     callback: dict | None = None,
     java: str | None = None,
+    forge_version: str | None = None,
 ) -> str:
     """
-    Install Forge, drop Abyzum mod, return launch version id (e.g. 1.19.2-forge-43.3.0).
+    Install Forge, drop Abyzum mod, return launch version id (e.g. 1.19-forge-41.1.0).
     """
     mc = str(mc_dir)
-    forge_id = minecraft_launcher_lib.forge.find_forge_version(vanilla_version) or FORGE_VERSION
+    forge_id = forge_version or minecraft_launcher_lib.forge.find_forge_version(vanilla_version) or FORGE_VERSION
     if status:
         status(f"Instalando Forge {forge_id}…")
 

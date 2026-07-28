@@ -180,11 +180,7 @@ def apply_server_from_manifest(
     merged_server["name"] = server.get("name") or merged_server.get("name")
     merged["server"] = _normalize_server(merged_server, fallback_server)
 
-    if manifest.get("gameVersion"):
-        merged["minecraft_version"] = manifest["gameVersion"]
-    if manifest.get("forgeBuild"):
-        merged["forge_build_hint"] = manifest["forgeBuild"]
-
+    # La versión del cliente la fija config.json del launcher, no el manifest remoto.
     if mc_dir is not None:
         from forge_setup import write_mod_config
 
