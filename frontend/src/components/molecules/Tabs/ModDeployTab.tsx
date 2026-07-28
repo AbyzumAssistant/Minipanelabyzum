@@ -19,6 +19,7 @@ import {
   type ModDeployManifest,
   type ModrinthResolvedMod,
 } from '@/services/mods/mod-deploy.service';
+import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
 import type { ServerConfig } from '@/lib/types/types';
 
 interface ModDeployTabProps {
@@ -114,10 +115,14 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       .map((e) => e.split(':')[0]?.trim())
       .filter(Boolean);
 
-  const resolveServerHost = () => {
-    if (config.proxyHostname?.trim()) return config.proxyHostname.trim();
-    if (typeof window !== 'undefined' && window.location.hostname) return window.location.hostname;
-    return serverId;
+  const resolveServerHost = () =>
+    resolveMcServerHost(config.proxyHostname || undefined);
+
+  const serverAddress = `${resolveServerHost()}:${config.port || DEFAULT_MC_SERVER_PORT}`;
+
+  const copyServerAddress = () => {
+    navigator.clipboard.writeText(serverAddress);
+    mcToast.success(t('modDeployServerAddressCopied'));
   };
 
   const syncLauncher = async () => {
@@ -132,7 +137,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       const saved = await syncLauncherManifest(serverId, {
         slugs,
         serverHost: resolveServerHost(),
-        serverPort: Number(config.port || 25565),
+        serverPort: Number(config.port || DEFAULT_MC_SERVER_PORT),
         serverName: config.serverName || serverId,
         forgeBuild: config.forgeBuild || '43.3.0',
         resourcePackUrl: resourcePackUrl || undefined,
@@ -204,6 +209,27 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
             <Label className="text-sm font-medium text-white">{t('launcherSyncTitle')}</Label>
           </div>
           <p className="text-xs text-zinc-400">{t('launcherSyncDesc')}</p>
+          <div className="space-y-2">
+            <Label className="text-xs text-zinc-500">{t('modDeployServerAddress')}</Label>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                readOnly
+                value={serverAddress}
+                className="bg-zinc-950 text-sky-300 border-zinc-700 font-mono flex-1 min-w-[200px] focus-visible:ring-emerald-500"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={copyServerAddress}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              >
+                <Copy className="h-4 w-4 mr-1" />
+                {t('copy')}
+              </Button>
+            </div>
+            <p className="text-xs text-zinc-500">{t('modDeployServerAddressDesc')}</p>
+          </div>
           <Input
             readOnly
             value={launcherManifestUrl}

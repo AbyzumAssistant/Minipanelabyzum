@@ -1,6 +1,7 @@
 const defaultPublicEnv = {
   NEXT_PUBLIC_BACKEND_URL: '/api/backend',
   NEXT_PUBLIC_DEFAULT_LANGUAGE: 'en',
+  NEXT_PUBLIC_MC_SERVER_HOST: '',
 } as const;
 
 export type PublicEnvKey = keyof typeof defaultPublicEnv;
@@ -52,5 +53,6 @@ function readPublicEnv() {
   return {
     NEXT_PUBLIC_BACKEND_URL: configured.startsWith('/') ? configured : resolveBackendUrl(configured),
     NEXT_PUBLIC_DEFAULT_LANGUAGE: process.env.NEXT_PUBLIC_DEFAULT_LANGUAGE ?? defaultPublicEnv.NEXT_PUBLIC_DEFAULT_LANGUAGE,
+    NEXT_PUBLIC_MC_SERVER_HOST: process.env.NEXT_PUBLIC_MC_SERVER_HOST ?? defaultPublicEnv.NEXT_PUBLIC_MC_SERVER_HOST,
   } as const;
 }

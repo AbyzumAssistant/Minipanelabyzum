@@ -97,6 +97,31 @@ export default function JoinServerPage() {
           </Badge>
         </header>
 
+        {manifest.server && (
+          <Card className="border-sky-600/40 bg-sky-950/20">
+            <CardContent className="pt-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-white">Dirección del servidor</p>
+                <p className="text-lg font-mono text-sky-400 mt-1">
+                  {manifest.server.host}:{manifest.server.port}
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">Pega esto en Multijugador → Directo en Minecraft</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-sky-600/50 text-sky-300"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${manifest.server!.host}:${manifest.server!.port}`);
+                }}
+              >
+                Copiar IP
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {manifest.lockClientResourcePacks && (
           <Card className="border-zinc-700 bg-zinc-900/80">
             <CardContent className="pt-4 flex gap-3">
