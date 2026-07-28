@@ -44,7 +44,7 @@ export const apiClearServerData = async (serverId: string): Promise<{ success: b
   return response.data;
 };
 
-export const getServerStatus = async (serverId: string): Promise<{ status: "running" | "stopped" | "not_found" }> => {
+export const getServerStatus = async (serverId: string): Promise<{ status: "running" | "stopped" | "starting" | "not_found" }> => {
   const response = await api.get(`/servers/${serverId}/status`);
   return response.data;
 };

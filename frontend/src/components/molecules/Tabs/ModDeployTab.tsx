@@ -131,7 +131,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       }
 
       const { status } = await getServerStatus(serverId);
-      if (status === 'running' || status === 'restarting') {
+      if (status === 'running' || status === 'starting') {
         await apiRestartServer(serverId);
       }
 
@@ -170,7 +170,7 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       updateConfig('modrinthDownloadDependencies', 'required');
 
       const { status } = await getServerStatus(serverId);
-      if (status === 'running' || status === 'restarting') {
+      if (status === 'running' || status === 'starting') {
         await apiRestartServer(serverId);
       }
 

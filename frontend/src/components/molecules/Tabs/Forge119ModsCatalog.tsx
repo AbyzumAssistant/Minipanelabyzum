@@ -276,7 +276,7 @@ export const Forge119ModsCatalog: FC<Forge119ModsCatalogProps> = ({ serverId, co
       });
 
       const { status } = await getServerStatus(serverId);
-      if (status === 'running' || status === 'restarting') {
+      if (status === 'running' || status === 'starting') {
         await apiRestartServer(serverId);
       }
 
