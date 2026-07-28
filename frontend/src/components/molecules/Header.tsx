@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/services/auth/auth.service";
 import { getSessionUser } from "@/services/auth/auth.service";
+import { AUTH_LOGIN_PATH } from "@/lib/auth-routes";
 import { m } from "framer-motion";
 import { LogOut, User } from "lucide-react";
 import { useLanguage } from "@/lib/hooks/useLanguage";
@@ -26,7 +27,7 @@ export function Header() {
 
   const handleLogout = () => {
     logout();
-    router.push("/");
+    router.push(AUTH_LOGIN_PATH);
   };
 
   return (

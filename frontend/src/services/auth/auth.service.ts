@@ -1,5 +1,6 @@
 import api from "../axios.service";
 import { getPublicEnv } from "@/lib/public-env";
+import { AUTH_LOGIN_PATH } from "@/lib/auth-routes";
 import { UserAccessState, UserInvitation } from "../users/users.service";
 
 let isRefreshing = false;
@@ -264,7 +265,7 @@ export const setupAxiosInterceptors = () => {
           onRefreshFailed(error);
           invalidateSessionUserCache();
           if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
-            window.location.href = '/';
+            window.location.href = AUTH_LOGIN_PATH;
           }
           throw error;
         }

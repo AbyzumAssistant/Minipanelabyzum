@@ -33,6 +33,7 @@ jest.mock('node:util', () => {
 // Import after mocks
 import { ServerManagementService } from './server-management.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { DockerComposeService } from '../docker-compose/docker-compose.service';
 import * as fs from 'fs-extra';
 
 // Get the mocked promisify result
@@ -66,6 +67,10 @@ describe('ServerManagementService', () => {
       markExpectedStop: jest.fn(),
     };
 
+    const mockDockerComposeService = {
+      reconcileServerPortBeforeStart: jest.fn().mockResolvedValue({ port: '25569', changed: false }),
+    };
+
     (fs.ensureDirSync as jest.Mock).mockImplementation(() => {});
     (fs.pathExists as jest.Mock).mockResolvedValue(true);
 
@@ -76,6 +81,7 @@ describe('ServerManagementService', () => {
         { provide: getRepositoryToken(Settings), useValue: mockSettingsRepo },
         { provide: DiscordService, useValue: mockDiscordService },
         { provide: AlertsService, useValue: mockAlertsService },
+        { provide: DockerComposeService, useValue: mockDockerComposeService },
       ],
     }).compile();
 

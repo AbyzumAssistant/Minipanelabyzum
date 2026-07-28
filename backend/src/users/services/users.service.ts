@@ -520,7 +520,7 @@ export class UsersService {
       throw new BadRequestException('FRONTEND_URL is not configured');
     }
 
-    const url = new URL(frontendUrl);
+    const url = new URL('/admin', frontendUrl);
     url.searchParams.set('inviteToken', token);
 
     return url.toString();

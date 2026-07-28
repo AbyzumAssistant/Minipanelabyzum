@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/organisms/Sidebar";
 import { DashboardHeader } from "@/components/organisms/DashboardHeader";
 import { useLanguage } from "@/lib/hooks/useLanguage";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { AUTH_LOGIN_PATH } from "@/lib/auth-routes";
 import { useUIStore } from "@/lib/store/ui-store";
 
 interface DashboardShellProps {
@@ -25,7 +26,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/");
+      router.push(AUTH_LOGIN_PATH);
     }
   }, [isAuthenticated, isLoading, router]);
 

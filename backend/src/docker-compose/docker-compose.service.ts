@@ -58,22 +58,64 @@ export class DockerComposeService {
     };
   }
 
+  private async getDockerPublishedHostPorts(excludeServerId?: string): Promise<Set<number>> {
+    const ports = new Set<number>();
+
+    try {
+      const { stdout } = await execAsync('docker ps -a --format "{{.Names}}\t{{.Ports}}"');
+      const hostPortPattern = /(?:0\.0\.0\.0|\[::\]|(?:\d{1,3}\.){3}\d{1,3}):(\d+)->/g;
+
+      for (const line of stdout.split('\n')) {
+        if (!line.trim()) continue;
+
+        const separator = line.indexOf('\t');
+        if (separator < 0) continue;
+
+        const containerName = line.slice(0, separator);
+        const publishedPorts = line.slice(separator + 1);
+
+        if (
+          excludeServerId &&
+          (containerName === excludeServerId ||
+            containerName.startsWith(`${excludeServerId}-`) ||
+            containerName.includes(`-${excludeServerId}-`))
+        ) {
+          continue;
+        }
+
+        for (const match of publishedPorts.matchAll(hostPortPattern)) {
+          const port = Number.parseInt(match[1], 10);
+          if (Number.isFinite(port)) {
+            ports.add(port);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn('Failed to list published docker ports', error);
+    }
+
+    return ports;
+  }
+
   private async findAvailablePort(startPort: number, serverId: string, reservedPorts: number[] = []): Promise<number> {
     try {
       const serverIds = await this.getAllServerIds();
       const usedPorts = new Set<number>(reservedPorts);
+      const hostPorts = await this.getDockerPublishedHostPorts(serverId);
 
       for (const id of serverIds) {
         if (id === serverId) continue;
 
         const serverConfig = await this.loadServerConfigFromDockerCompose(id);
         if (serverConfig?.port) {
-          usedPorts.add(Number.parseInt(serverConfig.port));
+          usedPorts.add(Number.parseInt(serverConfig.port, 10));
         }
       }
 
       let port = startPort;
-      while (usedPorts.has(port)) port++;
+      while (usedPorts.has(port) || hostPorts.has(port)) {
+        port++;
+      }
 
       return port;
     } catch (error) {
@@ -1222,6 +1264,28 @@ export class DockerComposeService {
       return mountTarget === '/data/.world-library/global' || mountTarget === '/worlds/global';
     }
     return mountTarget === target;
+  }
+
+  async reconcileServerPortBeforeStart(serverId: string): Promise<{ port: string; changed: boolean }> {
+    const config = await this.loadServerConfigFromDockerCompose(serverId);
+    const proxyEnabled = await this.isMcRouterRunning();
+    const edition = config.edition ?? 'JAVA';
+    const usesProxy = proxyEnabled && edition === 'JAVA' && config.useProxy !== false;
+
+    if (usesProxy) {
+      return { port: config.port, changed: false };
+    }
+
+    const previousPort = config.port;
+    await this.ensurePortAvailable(config, proxyEnabled);
+
+    const changed = config.port !== previousPort;
+    if (changed) {
+      await this.generateDockerComposeFile(config, proxyEnabled);
+      this.logger.log(`Server ${serverId}: port ${previousPort} busy on host, switched to ${config.port}`);
+    }
+
+    return { port: config.port, changed };
   }
 
   private async ensurePortAvailable(config: ServerConfig, proxyEnabled = false): Promise<string> {

@@ -10,6 +10,7 @@ import { Repository, Not, IsNull } from 'typeorm';
 import { Settings } from 'src/users/entities/settings.entity';
 import { DiscordService, ServerEventType, SupportedLanguage } from 'src/discord/discord.service';
 import { ConfigService } from '@nestjs/config';
+import { DockerComposeService } from 'src/docker-compose/docker-compose.service';
 import { ServerEdition } from './dto/server-config.model';
 import { AlertsService } from 'src/alerts/alerts.service';
 
@@ -118,6 +119,7 @@ export class ServerManagementService {
     private readonly settingsRepo: Repository<Settings>,
     private readonly discordService: DiscordService,
     private readonly alertsService: AlertsService,
+    private readonly dockerComposeService: DockerComposeService,
   ) {
     this.SERVERS_DIR = this.configService.get('serversDir');
     this.BASE_DIR = this.configService.get('baseDir');
@@ -664,7 +666,9 @@ export class ServerManagementService {
 
     const portMatch = detail.match(/Bind for 0\.0\.0\.0:(\d+) failed: port is already allocated/i);
     if (portMatch) {
-      return `Puerto ${portMatch[1]} ocupado en el VPS. Ve a Configuración → Conectividad, pon otro puerto (ej. 25569), guarda e inicia de nuevo.`;
+      const busyPort = Number.parseInt(portMatch[1], 10);
+      const suggestedPort = Number.isFinite(busyPort) ? busyPort + 1 : 25570;
+      return `Puerto ${portMatch[1]} ocupado en el VPS. El panel intentará usar ${suggestedPort} automáticamente al reiniciar. Si persiste, cambia el puerto en Configuración → Conectividad, guarda e inicia de nuevo.`;
     }
 
     if (detail.includes('port is already allocated')) {
@@ -1588,12 +1592,19 @@ export class ServerManagementService {
         await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_DOWN);
       }
 
+      const { port, changed } = await this.dockerComposeService.reconcileServerPortBeforeStart(serverId);
+
       await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_UP);
 
       this.logger.log(`Server ${serverId} started successfully`);
       await this.sendDiscordNotification('started', serverId);
 
-      return { success: true, message: 'Server started successfully' };
+      return {
+        success: true,
+        message: changed
+          ? `Servidor iniciado en el puerto ${port} (el puerto anterior estaba ocupado en el VPS).`
+          : 'Server started successfully',
+      };
     } catch (error) {
       const message = this.extractDockerError(error);
       this.logger.error(`Failed to start server ${serverId}`, error);

@@ -56,7 +56,7 @@ export class OidcController {
       res.redirect(`${frontendUrl}/dashboard/home`);
     } catch {
       res.clearCookie(OIDC_TX_COOKIE);
-      res.redirect(`${frontendUrl}/?ssoError=1`);
+      res.redirect(`${frontendUrl}/admin?ssoError=1`);
     }
   }
 

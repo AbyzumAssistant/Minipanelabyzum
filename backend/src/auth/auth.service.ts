@@ -365,7 +365,7 @@ export class AuthService {
       throw new ServiceUnavailableException('FRONTEND_URL is not configured');
     }
 
-    const url = new URL(frontendUrl);
+    const url = new URL('/admin', frontendUrl);
     url.searchParams.set('resetToken', token);
 
     return url.toString();

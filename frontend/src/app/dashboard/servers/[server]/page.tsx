@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { isAuthenticated } from "@/services/auth/auth.service";
+import { AUTH_LOGIN_PATH } from "@/lib/auth-routes";
 import { useServerStatus } from "@/lib/hooks/useServerStatus";
 import { useServerConfig } from "@/lib/hooks/useServerConfig";
 import { ServerPageHeader } from "@/components/organisms/ServerPageHeader";
@@ -25,7 +26,7 @@ export default function ServerConfig() {
   useEffect(() => {
     isAuthenticated().then((authenticated) => {
       if (!authenticated) {
-        router.push('/');
+        router.push(AUTH_LOGIN_PATH);
       }
     });
   }, [router]);
