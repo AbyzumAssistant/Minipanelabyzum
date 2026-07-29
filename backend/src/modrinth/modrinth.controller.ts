@@ -43,6 +43,7 @@ export class ModrinthController {
         maxMemory: isHorizons ? '10G' : '8G',
         memoryReservation: isHorizons ? '8G' : '6G',
         motd: isHorizons ? 'mcabyzum · Horizons' : `abyzumMC ${source.modpackTitle ?? source.modpackSlug}`,
+        modrinthProjects: source.modrinthProjects || '',
         modrinthDownloadDependencies: 'required',
       });
       return;

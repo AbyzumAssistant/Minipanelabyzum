@@ -1242,6 +1242,115 @@ export class ModrinthService {
     }
   }
 
+  private async fetchVersionByFileHash(
+    sha1: string,
+  ): Promise<{ project: ModrinthProject; version: ModrinthVersion } | null> {
+    if (!sha1) return null;
+    try {
+      const { data: version } = await this.apiClient.get<ModrinthVersion>(`/version_file/${sha1}`, {
+        params: { algorithm: 'sha1' },
+      });
+      const project = await this.fetchProjectById(version.project_id);
+      if (!project) return null;
+      return { project, version };
+    } catch {
+      return null;
+    }
+  }
+
+  private async enrichModpackWithServerDependencies(
+    mrpackMods: ModrinthResolvedMod[],
+    gameVersion: string,
+    loader: string,
+  ): Promise<{ mods: ModrinthResolvedMod[]; serverExtraProjects: string }> {
+    const mrpackProjectIds = new Set<string>();
+    const resolvedByProject = new Map<string, ModrinthResolvedMod>();
+    const unresolved: ModrinthResolvedMod[] = [];
+
+    for (const entry of mrpackMods) {
+      const match = entry.sha1 ? await this.fetchVersionByFileHash(entry.sha1) : null;
+      if (!match) {
+        unresolved.push(entry);
+        continue;
+      }
+
+      mrpackProjectIds.add(match.project.id);
+      resolvedByProject.set(match.project.id, {
+        ...entry,
+        projectId: match.project.id,
+        slug: match.project.slug,
+        name: match.project.title,
+        versionId: match.version.id,
+        versionNumber: match.version.version_number,
+        isDependency: false,
+      });
+    }
+
+    const queue = [...resolvedByProject.keys()];
+    const visitedVersions = new Set<string>();
+
+    while (queue.length > 0) {
+      const projectId = queue.shift()!;
+      const mod = resolvedByProject.get(projectId);
+      if (!mod || visitedVersions.has(mod.versionId)) continue;
+      visitedVersions.add(mod.versionId);
+
+      const version = await this.fetchVersion(mod.versionId);
+      if (!version) continue;
+
+      for (const dep of version.dependencies) {
+        if (dep.dependency_type !== 'required') continue;
+
+        let depProjectId = dep.project_id ?? undefined;
+        if (!depProjectId && dep.version_id) {
+          const depVersion = await this.fetchVersion(dep.version_id);
+          depProjectId = depVersion?.project_id;
+        }
+        if (!depProjectId) continue;
+
+        if (mrpackProjectIds.has(depProjectId) || resolvedByProject.has(depProjectId)) {
+          continue;
+        }
+
+        const depProject = await this.fetchProjectById(depProjectId);
+        if (!depProject) continue;
+
+        const depVersion =
+          dep.version_id != null
+            ? await this.fetchVersion(dep.version_id)
+            : await this.fetchBestVersion(depProjectId, gameVersion, loader);
+        if (!depVersion) continue;
+
+        const depFile = depVersion.files.find((file) => file.primary) ?? depVersion.files[0];
+        if (!depFile) continue;
+
+        resolvedByProject.set(depProjectId, {
+          projectId: depProject.id,
+          slug: depProject.slug,
+          name: depProject.title,
+          versionId: depVersion.id,
+          versionNumber: depVersion.version_number,
+          fileName: depFile.filename,
+          downloadUrl: depFile.url,
+          fileSize: depFile.size,
+          sha1: depFile.hashes.sha1 ?? '',
+          isDependency: true,
+        });
+
+        queue.push(depProjectId);
+      }
+    }
+
+    const serverExtras = [...resolvedByProject.values()]
+      .filter((mod) => mod.isDependency)
+      .map((mod) => `${mod.slug}:${mod.versionNumber}`);
+
+    return {
+      mods: [...resolvedByProject.values(), ...unresolved],
+      serverExtraProjects: [...new Set(serverExtras)].join(','),
+    };
+  }
+
   private async fetchBestVersion(
     projectId: string,
     gameVersion: string,
@@ -1661,6 +1770,7 @@ export class ModrinthService {
     }
 
     const primaryResourcePack = resourcePacks.find((pack) => pack.fileName.toLowerCase().endsWith('.zip'));
+    const enriched = await this.enrichModpackWithServerDependencies(mods, gameVersion, loader);
 
     return {
       project,
@@ -1669,7 +1779,8 @@ export class ModrinthService {
       gameVersion,
       loader,
       fabricLoaderVersion,
-      mods,
+      mods: enriched.mods,
+      serverExtraProjects: enriched.serverExtraProjects,
       resourcePacks,
       primaryResourcePack,
       configFiles,
@@ -1714,7 +1825,7 @@ export class ModrinthService {
       loader: resolved.loader,
       updatedAt: new Date().toISOString(),
       mods: resolved.mods,
-      modrinthProjects: resolved.mods.map((mod) => `${mod.slug}:${mod.versionNumber}`).join(','),
+      modrinthProjects: resolved.serverExtraProjects,
       resourcePacks: resolved.resourcePacks,
       resourcePack: resolved.primaryResourcePack
         ? {

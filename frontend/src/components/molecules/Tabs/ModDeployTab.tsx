@@ -140,6 +140,9 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
         if (manifest.modpackVersion) {
           updateConfig('modrinthModpackVersion', manifest.modpackVersion);
         }
+        if (manifest.modrinthProjects) {
+          updateConfig('modrinthProjects', manifest.modrinthProjects);
+        }
         updateConfig('minecraftVersion', manifest.gameVersion);
       }
 
@@ -185,6 +188,9 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       updateConfig('motd', 'mcabyzum · Horizons');
       updateConfig('onlineMode', false);
       updateConfig('modrinthDownloadDependencies', 'required');
+      if (saved.modrinthProjects) {
+        updateConfig('modrinthProjects', saved.modrinthProjects);
+      }
 
       const { status } = await getServerStatus(serverId);
       if (status === 'running' || status === 'starting') {
