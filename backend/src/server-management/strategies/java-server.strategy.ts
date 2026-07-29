@@ -1,5 +1,6 @@
 import { ServerConfig } from '../dto/server-config.model';
 import { IServerStrategy, ServerEdition } from './server-strategy.interface';
+import { resolveModrinthModpackEnv } from '../utils/modrinth-modpack.util';
 
 export class JavaServerStrategy implements IServerStrategy {
   readonly edition: ServerEdition = 'JAVA';
@@ -247,7 +248,9 @@ export class JavaServerStrategy implements IServerStrategy {
 
     // Only set MODPACK for pure MODRINTH server
     if (config.serverType === 'MODRINTH') {
-      env['MODRINTH_MODPACK'] = config.modrinthModpack;
+      const { modpack, version } = resolveModrinthModpackEnv(config);
+      env['MODRINTH_MODPACK'] = modpack;
+      if (version) env['MODRINTH_VERSION'] = version;
     }
   }
 

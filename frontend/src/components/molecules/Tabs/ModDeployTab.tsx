@@ -137,6 +137,9 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       if (manifest?.modpackSlug) {
         updateConfig('serverType', 'MODRINTH');
         updateConfig('modrinthModpack', manifest.modpackSlug);
+        if (manifest.modpackVersion) {
+          updateConfig('modrinthModpackVersion', manifest.modpackVersion);
+        }
         updateConfig('minecraftVersion', manifest.gameVersion);
       }
 
@@ -170,10 +173,8 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       });
 
       updateConfig('serverType', 'MODRINTH');
-      updateConfig(
-        'modrinthModpack',
-        saved.modpackVersion ? `${saved.modpackSlug}:${saved.modpackVersion}` : HORIZONS_MODPACK_SLUG,
-      );
+      updateConfig('modrinthModpack', saved.modpackSlug ?? HORIZONS_MODPACK_SLUG);
+      updateConfig('modrinthModpackVersion', saved.modpackVersion ?? '');
       updateConfig('modrinthLoader', 'fabric');
       if (saved.fabricLoaderVersion) {
         updateConfig('fabricLoaderVersion', saved.fabricLoaderVersion);

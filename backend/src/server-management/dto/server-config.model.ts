@@ -452,6 +452,10 @@ export class ServerConfigDto {
   @IsOptional()
   modrinthModpack?: string;
 
+  @IsString()
+  @IsOptional()
+  modrinthModpackVersion?: string;
+
   // GTNH specific
   @IsString()
   @IsOptional()

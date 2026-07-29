@@ -179,6 +179,7 @@ export interface ServerConfig {
   requireResourcePack?: boolean;
 
   modrinthModpack?: string;
+  modrinthModpackVersion?: string;
 
   // GTNH specific
   gtnhPackVersion?: string;

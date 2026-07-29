@@ -31,12 +31,10 @@ export class ModrinthController {
 
     if (source.modpackSlug) {
       const isHorizons = source.profile === 'horizons' || source.modpackSlug === 'horizons1';
-      const modpackRef = source.modpackVersion
-        ? `${source.modpackSlug}:${source.modpackVersion}`
-        : source.modpackSlug;
       await this.dockerComposeService.updateServerConfig(serverId, {
         serverType: 'MODRINTH',
-        modrinthModpack: modpackRef,
+        modrinthModpack: source.modpackSlug,
+        modrinthModpackVersion: source.modpackVersion || '',
         modrinthLoader: source.loader || 'fabric',
         fabricLoaderVersion: source.fabricLoaderVersion || '',
         minecraftVersion: source.gameVersion,
