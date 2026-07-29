@@ -25,8 +25,9 @@ def ensure_fabric(
         status(f"Instalando Fabric {loader_version}…")
 
     minecraft_launcher_lib.fabric.install_fabric(
-        loader_version,
+        vanilla_version,
         mc,
+        loader_version=loader_version,
         callback=callback,
         java=java,
     )
