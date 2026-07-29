@@ -744,15 +744,29 @@ export class ServerManagementService {
       const { stdout, stderr } = await this.executeProcess('docker', ['logs', '--since', since, '--timestamps', containerId]);
       logs = stdout + stderr;
     } else {
-      const result = await execAsync(DOCKER_COMMANDS.LOGS(containerId, lines));
-      logs = result.stdout;
+      const { stdout, stderr } = await this.executeProcess('docker', [
+        'logs',
+        '--tail',
+        String(lines),
+        '--timestamps',
+        containerId,
+      ]);
+      logs = stdout + stderr;
     }
 
     if (!logs.trim()) {
       try {
-        const previous = await execAsync(DOCKER_COMMANDS.LOGS_PREVIOUS(containerId, lines));
-        if (previous.stdout.trim()) {
-          logs = `[Minepanel] Logs del intento anterior de arranque:\n${previous.stdout}`;
+        const { stdout, stderr } = await this.executeProcess('docker', [
+          'logs',
+          '--previous',
+          '--tail',
+          String(lines),
+          '--timestamps',
+          containerId,
+        ]);
+        const previousLogs = (stdout + stderr).trim();
+        if (previousLogs) {
+          logs = `[Minepanel] Logs del intento anterior de arranque:\n${previousLogs}`;
         }
       } catch {
         // No previous container logs available
@@ -1738,7 +1752,8 @@ export class ServerManagementService {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Read recent logs to find the response
-      const { stdout: logs } = await execAsync(DOCKER_COMMANDS.LOGS(containerId, 20));
+      const { stdout, stderr } = await this.executeProcess('docker', ['logs', '--tail', '20', '--timestamps', containerId]);
+      const logs = stdout + stderr;
 
       // Bedrock format: "There are X/Y players online:"
       const match = /There are (\d+)\/(\d+) players online[:\s]*(.*)/i.exec(logs);
