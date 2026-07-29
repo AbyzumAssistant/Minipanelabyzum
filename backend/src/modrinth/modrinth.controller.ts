@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/auth.guard';
 import { Public } from '../auth/decorators/public.decorator';
 import { DockerComposeService } from '../docker-compose/docker-compose.service';
+import { ServerManagementService } from '../server-management/server-management.service';
 import { ModrinthService, ModDeployManifest } from './modrinth.service';
 import { SearchModrinthModsQueryDto } from './dto/search-mods.query.dto';
 import { ResolveModsDto, SaveDeployManifestDto, SyncLauncherManifestDto } from './dto/resolve-mods.dto';
@@ -16,6 +17,7 @@ export class ModrinthController {
   constructor(
     private readonly modrinthService: ModrinthService,
     private readonly dockerComposeService: DockerComposeService,
+    private readonly serverManagementService: ServerManagementService,
   ) {}
 
   private async syncManifestToServer(serverId: string, source: ModDeployManifest | string) {
@@ -217,6 +219,11 @@ export class ModrinthController {
     }
 
     try {
+      const isHorizons = manifest.profile === 'horizons' || manifest.modpackSlug === 'horizons1';
+      if (isHorizons) {
+        await this.serverManagementService.stopServer(serverId);
+      }
+
       await this.syncManifestToServer(serverId, manifest);
       await this.dockerComposeService.updateServerConfig(serverId, {
         serverName: body.serverName,

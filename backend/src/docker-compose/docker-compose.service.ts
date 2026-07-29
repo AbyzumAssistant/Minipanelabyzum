@@ -10,8 +10,8 @@ import { ServerStrategyFactory } from 'src/server-management/strategies';
 import { resolveModrinthModpackEnv } from 'src/server-management/utils/modrinth-modpack.util';
 import {
   getHorizonsModrinthExcludeFiles,
-  HORIZONS_SERVER_MOD_EXCLUDES,
   isHorizonsModpack,
+  matchesHorizonsServerModExclude,
 } from 'src/modrinth/horizons-server.constants';
 
 const execAsync = promisify(exec);
@@ -1002,7 +1002,7 @@ export class DockerComposeService {
     const removed: string[] = [];
 
     for (const name of entries) {
-      if (!HORIZONS_SERVER_MOD_EXCLUDES.some((pattern) => name.includes(pattern))) {
+      if (!matchesHorizonsServerModExclude(name)) {
         continue;
       }
 

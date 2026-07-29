@@ -839,9 +839,9 @@ export class ServerManagementService {
 
       this.alertsService.markExpectedStop(serverId);
       const { proxyEnabled } = await this.getUserSettings();
+      await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_DOWN);
       await this.dockerComposeService.ensureHorizonsServerReadiness(serverId, proxyEnabled);
       await this.dockerComposeService.ensureForgeOfflineConnectivity(serverId, proxyEnabled);
-      await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_DOWN);
       await this.execComposeCommand(serverId, DOCKER_COMMANDS.COMPOSE_UP);
 
       this.logger.log(`Server ${serverId} restarted successfully`);

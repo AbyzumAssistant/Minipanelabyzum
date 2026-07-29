@@ -23,7 +23,7 @@ export const HORIZONS_PROFILE = {
   onlineMode: false,
   enableRcon: true,
   port: '25569',
-  modrinthExcludeFiles: 'BetterTrims',
+  modrinthExcludeFiles: 'bettertrims',
   modrinthForceSynchronize: true,
 };
 
@@ -40,5 +40,7 @@ export function applyHorizonsDefaults(config: Partial<ServerConfig>): ServerConf
   merged.modrinthModpack = merged.modrinthModpack || HORIZONS_MODPACK_SLUG;
   merged.modrinthLoader = 'fabric';
   merged.serverType = 'MODRINTH';
+  merged.modrinthExcludeFiles = HORIZONS_PROFILE.modrinthExcludeFiles;
+  merged.modrinthForceSynchronize = true;
   return merged;
 }

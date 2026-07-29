@@ -21,8 +21,8 @@ import {
 import { FilesService } from '../files/files.service';
 import {
   getHorizonsModrinthExcludeFiles,
-  HORIZONS_SERVER_MOD_EXCLUDES,
   isHorizonsModpack,
+  matchesHorizonsServerModExclude,
 } from './horizons-server.constants';
 
 export interface NormalizedModSearchResult {
@@ -1876,7 +1876,7 @@ export class ModrinthService {
 
     for (const file of modFiles) {
       if (file.isDirectory) continue;
-      if (!HORIZONS_SERVER_MOD_EXCLUDES.some((pattern) => file.name.includes(pattern))) {
+      if (!matchesHorizonsServerModExclude(file.name)) {
         continue;
       }
 

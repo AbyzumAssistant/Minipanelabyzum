@@ -22,7 +22,7 @@ import {
   type ModDeployManifest,
   type ModrinthResolvedMod,
 } from '@/services/mods/mod-deploy.service';
-import { HORIZONS_MODPACK_SLUG } from '@/lib/horizons-defaults';
+import { HORIZONS_MODPACK_SLUG, applyHorizonsDefaults } from '@/lib/horizons-defaults';
 import { isHorizonsProfile } from '@/lib/server-profile';
 import { apiRestartServer, getServerStatus, updateServerConfig } from '@/services/docker/fetchs';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
@@ -175,24 +175,23 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
         profile: 'horizons',
       });
 
-      updateConfig('serverType', 'MODRINTH');
-      updateConfig('modrinthModpack', saved.modpackSlug ?? HORIZONS_MODPACK_SLUG);
-      updateConfig('modrinthModpackVersion', saved.modpackVersion ?? '');
-      updateConfig('modrinthLoader', 'fabric');
-      if (saved.fabricLoaderVersion) {
-        updateConfig('fabricLoaderVersion', saved.fabricLoaderVersion);
-      }
-      updateConfig('minecraftVersion', saved.gameVersion);
-      updateConfig('initMemory', '8G');
-      updateConfig('maxMemory', '10G');
-      updateConfig('motd', 'mcabyzum · Horizons');
-      updateConfig('onlineMode', false);
-      updateConfig('modrinthDownloadDependencies', 'required');
-      if (saved.modrinthProjects) {
-        updateConfig('modrinthProjects', saved.modrinthProjects);
-      }
-      updateConfig('modrinthExcludeFiles', 'BetterTrims');
-      updateConfig('modrinthForceSynchronize', true);
+      const horizonsConfig = applyHorizonsDefaults({
+        ...config,
+        modrinthModpack: saved.modpackSlug ?? HORIZONS_MODPACK_SLUG,
+        modrinthModpackVersion: saved.modpackVersion ?? '',
+        minecraftVersion: saved.gameVersion,
+        fabricLoaderVersion: saved.fabricLoaderVersion ?? config.fabricLoaderVersion,
+        modrinthProjects: saved.modrinthProjects ?? config.modrinthProjects,
+        modrinthDownloadDependencies: 'required',
+      });
+
+      await updateServerConfig(serverId, horizonsConfig);
+
+      Object.entries(horizonsConfig).forEach(([key, value]) => {
+        if (value !== undefined) {
+          updateConfig(key as keyof ServerConfig, value as ServerConfig[keyof ServerConfig]);
+        }
+      });
 
       const { status } = await getServerStatus(serverId);
       if (status === 'running' || status === 'starting') {
