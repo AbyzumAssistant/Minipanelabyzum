@@ -20,6 +20,7 @@ import {
 } from './paper-plugin-catalog';
 import { FilesService } from '../files/files.service';
 import { DockerComposeService } from '../docker-compose/docker-compose.service';
+import { resolveModrinthModpackEnv } from '../server-management/utils/modrinth-modpack.util';
 import {
   getHorizonsModrinthExcludeFiles,
   getHorizonsModrinthIgnoreMissingFiles,
@@ -1633,14 +1634,7 @@ export class ModrinthService {
   }
 
   async buildLauncherPack(serverId: string, panelUrl?: string): Promise<LauncherBuildStatus> {
-    const manifest =
-      (await this.refreshManifestServerPort(serverId)) ?? (await this.getDeployManifest(serverId));
-    if (!manifest || (manifest.mods?.length ?? 0) === 0) {
-      throw new HttpException(
-        'Publica mods y sincroniza el launcher antes de construir el instalador.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    const manifest = await this.ensureDeployManifestReady(serverId);
     if (!manifest.server?.host || !manifest.server?.port) {
       throw new HttpException(
         'Sincroniza el launcher para incluir IP y puerto del servidor.',
@@ -1684,6 +1678,54 @@ export class ModrinthService {
     );
 
     return this.getLauncherBuildStatus(serverId);
+  }
+
+  /**
+   * Garantiza manifest con mods antes de construir el launcher.
+   * Si falta en disco (p. ej. tras redeploy), lo regenera desde el modpack del servidor.
+   */
+  async ensureDeployManifestReady(serverId: string): Promise<ModDeployManifest> {
+    const refreshed = await this.refreshManifestServerPort(serverId);
+    const current = refreshed ?? (await this.getDeployManifest(serverId));
+    if (current?.mods?.length) {
+      return current;
+    }
+
+    const serverConfig = await this.dockerComposeService.getServerConfig(serverId);
+    if (!serverConfig) {
+      throw new HttpException(
+        'Publica mods y sincroniza el launcher antes de construir el instalador.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const { modpack, version } = resolveModrinthModpackEnv(serverConfig);
+    const slug = (modpack || '').trim();
+    if (!slug || slug.includes('://') || slug.toLowerCase().endsWith('.mrpack')) {
+      throw new HttpException(
+        'Publica mods y sincroniza el launcher antes de construir el instalador.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const host = this.resolveConnectHost(
+      serverConfig.proxyHostname || process.env.NEXT_PUBLIC_MC_SERVER_HOST,
+    );
+    const port = await this.resolveEffectiveServerPort(
+      serverId,
+      Number.parseInt(serverConfig.port || '25569', 10),
+    );
+
+    return this.publishModpackDeploy({
+      serverId,
+      slug: isHorizonsModpack(slug) ? HORIZONS_MODPACK_SLUG : slug,
+      versionId: version,
+      serverHost: host,
+      serverPort: port,
+      serverName: serverConfig.serverName || serverId,
+      lockClientResourcePacks: true,
+      profile: isHorizonsModpack(slug) ? 'horizons' : undefined,
+    });
   }
 
   async openLauncherPackStream(
