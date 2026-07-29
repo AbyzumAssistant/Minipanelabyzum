@@ -90,9 +90,11 @@ describe('JavaServerStrategy', () => {
     expect(env.MODRINTH_VERSION).toBe('1.5');
     expect(env.MODRINTH_LOADER).toBe('fabric');
     expect(env.FABRIC_LOADER_VERSION).toBe('0.16.10');
-    expect(env.MODRINTH_EXCLUDE_FILES).toBe('bettertrims');
+    expect(env.MODRINTH_EXCLUDE_FILES).toContain('bettertrims');
+    expect(env.MODRINTH_EXCLUDE_FILES).toContain('distanthorizons');
     expect(env.MODRINTH_FORCE_SYNCHRONIZE).toBe('true');
-    expect(env.MODRINTH_IGNORE_MISSING_FILES).toBe('bettertrims');
+    expect(env.MODRINTH_IGNORE_MISSING_FILES).toContain('bettertrims');
+    expect(env.MODRINTH_IGNORE_MISSING_FILES).toContain('distanthorizons');
   });
 
   it('should allow custom VERSION in envVars to override generated VERSION', () => {

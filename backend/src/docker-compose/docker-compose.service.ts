@@ -12,7 +12,7 @@ import {
   getHorizonsModrinthExcludeFiles,
   getHorizonsModrinthIgnoreMissingFiles,
   isHorizonsModpack,
-  matchesHorizonsServerModExclude,
+  shouldPruneHorizonsServerMod,
 } from 'src/modrinth/horizons-server.constants';
 
 const execAsync = promisify(exec);
@@ -186,7 +186,7 @@ export class DockerComposeService {
 
       const serverConfig: ServerConfig = {
         id: env.ID_MANAGER ?? serverId,
-        active: fs.existsSync(this.getMcDataPath(serverId)),
+        active: true,
         serverExists: true,
         edition,
         serverType: env.TYPE ?? 'VANILLA',
@@ -999,21 +999,34 @@ export class DockerComposeService {
   }
 
   async pruneHorizonsServerMods(serverId: string): Promise<string[]> {
-    const modsDir = path.join(this.getMcDataPath(serverId), 'mods');
-    if (!(await fs.pathExists(modsDir))) {
-      return [];
+    let gameVersion = '1.20.1';
+    try {
+      const config = await this.loadServerConfigFromDockerCompose(serverId);
+      gameVersion = config.minecraftVersion || gameVersion;
+    } catch {
+      // keep default game version
     }
 
-    const entries = await fs.readdir(modsDir);
     const removed: string[] = [];
+    const modDirs = [
+      path.join(this.getMcDataPath(serverId), 'mods'),
+      path.join(this.SERVERS_DIR, serverId, 'mods'),
+    ];
 
-    for (const name of entries) {
-      if (!matchesHorizonsServerModExclude(name)) {
+    for (const modsDir of modDirs) {
+      if (!(await fs.pathExists(modsDir))) {
         continue;
       }
 
-      await fs.remove(path.join(modsDir, name));
-      removed.push(name);
+      const entries = await fs.readdir(modsDir);
+      for (const name of entries) {
+        if (!shouldPruneHorizonsServerMod(name, gameVersion)) {
+          continue;
+        }
+
+        await fs.remove(path.join(modsDir, name));
+        removed.push(name);
+      }
     }
 
     return removed;
@@ -1751,6 +1764,9 @@ export class DockerComposeService {
 
     const serverDir = path.join(this.SERVERS_DIR, config.id);
     await fs.ensureDir(serverDir);
+    await fs.ensureDir(path.join(serverDir, 'mc-data'));
+    await fs.ensureDir(path.join(serverDir, 'modpacks'));
+    await fs.ensureDir(path.join(serverDir, 'worlds'));
 
     const edition = normalizedConfig.edition ?? 'JAVA';
     const strategy = ServerStrategyFactory.create(edition);

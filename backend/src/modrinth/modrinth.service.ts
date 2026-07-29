@@ -25,7 +25,7 @@ import {
   getHorizonsModrinthIgnoreMissingFiles,
   HORIZONS_MODPACK_SLUG,
   isHorizonsModpack,
-  matchesHorizonsServerModExclude,
+  shouldPruneHorizonsServerMod,
 } from './horizons-server.constants';
 
 export interface NormalizedModSearchResult {
@@ -1968,7 +1968,7 @@ export class ModrinthService {
 
     for (const file of modFiles) {
       if (file.isDirectory) continue;
-      if (!matchesHorizonsServerModExclude(file.name)) {
+      if (!shouldPruneHorizonsServerMod(file.name)) {
         continue;
       }
 
