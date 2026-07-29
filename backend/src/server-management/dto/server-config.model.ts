@@ -464,6 +464,10 @@ export class ServerConfigDto {
   @IsOptional()
   modrinthForceSynchronize?: boolean;
 
+  @IsString()
+  @IsOptional()
+  modrinthIgnoreMissingFiles?: string;
+
   // GTNH specific
   @IsString()
   @IsOptional()

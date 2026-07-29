@@ -182,6 +182,7 @@ export interface ServerConfig {
   modrinthModpackVersion?: string;
   modrinthExcludeFiles?: string;
   modrinthForceSynchronize?: boolean;
+  modrinthIgnoreMissingFiles?: string;
 
   // GTNH specific
   gtnhPackVersion?: string;

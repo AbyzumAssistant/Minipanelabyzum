@@ -24,7 +24,7 @@ import {
 } from '@/services/mods/mod-deploy.service';
 import { HORIZONS_MODPACK_SLUG, applyHorizonsDefaults } from '@/lib/horizons-defaults';
 import { isHorizonsProfile } from '@/lib/server-profile';
-import { apiRestartServer, getServerStatus, updateServerConfig } from '@/services/docker/fetchs';
+import { apiRestartServer, getServerStatus, startServer, updateServerConfig } from '@/services/docker/fetchs';
 import { DEFAULT_MC_SERVER_PORT, resolveMcServerHost } from '@/lib/mc-server-host';
 import { getPublicEnv } from '@/lib/public-env';
 import type { ServerConfig } from '@/lib/types/types';
@@ -196,6 +196,11 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       const { status } = await getServerStatus(serverId);
       if (status === 'running' || status === 'starting') {
         await apiRestartServer(serverId);
+      } else {
+        const started = await startServer(serverId);
+        if (!started.success) {
+          mcToast.error(started.message || t('horizonsModpackPublishError'));
+        }
       }
 
       setManifest(saved);

@@ -21,6 +21,7 @@ import {
 import { FilesService } from '../files/files.service';
 import {
   getHorizonsModrinthExcludeFiles,
+  getHorizonsModrinthIgnoreMissingFiles,
   isHorizonsModpack,
   matchesHorizonsServerModExclude,
 } from './horizons-server.constants';
@@ -1894,10 +1895,12 @@ export class ModrinthService {
   getHorizonsServerDockerModrinthConfig(): {
     modrinthExcludeFiles: string;
     modrinthForceSynchronize: boolean;
+    modrinthIgnoreMissingFiles: string;
   } {
     return {
       modrinthExcludeFiles: getHorizonsModrinthExcludeFiles(),
       modrinthForceSynchronize: true,
+      modrinthIgnoreMissingFiles: getHorizonsModrinthIgnoreMissingFiles(),
     };
   }
 

@@ -13,6 +13,10 @@ export function getHorizonsModrinthExcludeFiles(): string {
   return HORIZONS_SERVER_MOD_EXCLUDES.join('\n');
 }
 
+export function getHorizonsModrinthIgnoreMissingFiles(): string {
+  return HORIZONS_SERVER_MOD_EXCLUDES.join(',');
+}
+
 export function matchesHorizonsServerModExclude(fileName: string): boolean {
   const normalized = fileName.toLowerCase();
   return HORIZONS_SERVER_MOD_EXCLUDES.some((pattern) => normalized.includes(pattern));

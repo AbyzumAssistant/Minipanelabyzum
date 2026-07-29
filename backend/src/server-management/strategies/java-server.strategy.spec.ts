@@ -71,6 +71,30 @@ describe('JavaServerStrategy', () => {
     expect(env.VERSION).toBe('1.21.1');
   });
 
+  it('should include Modrinth exclude env vars for Horizons servers', () => {
+    const config = {
+      ...baseConfig(),
+      serverType: 'MODRINTH',
+      minecraftVersion: '1.20.1',
+      modrinthModpack: 'horizons1',
+      modrinthModpackVersion: '1.5',
+      modrinthLoader: 'fabric',
+      fabricLoaderVersion: '0.16.10',
+      neoforgeBuild: '',
+    } as ServerConfig;
+
+    const env = strategy.buildEnvironment(config);
+
+    expect(env.TYPE).toBe('MODRINTH');
+    expect(env.MODRINTH_MODPACK).toBe('horizons1');
+    expect(env.MODRINTH_VERSION).toBe('1.5');
+    expect(env.MODRINTH_LOADER).toBe('fabric');
+    expect(env.FABRIC_LOADER_VERSION).toBe('0.16.10');
+    expect(env.MODRINTH_EXCLUDE_FILES).toBe('bettertrims');
+    expect(env.MODRINTH_FORCE_SYNCHRONIZE).toBe('true');
+    expect(env.MODRINTH_IGNORE_MISSING_FILES).toBe('bettertrims');
+  });
+
   it('should allow custom VERSION in envVars to override generated VERSION', () => {
     const config = {
       ...baseConfig(),

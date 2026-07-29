@@ -1,6 +1,11 @@
 import { ServerConfig } from '../dto/server-config.model';
 import { IServerStrategy, ServerEdition } from './server-strategy.interface';
 import { resolveModrinthModpackEnv } from '../utils/modrinth-modpack.util';
+import {
+  getHorizonsModrinthExcludeFiles,
+  getHorizonsModrinthIgnoreMissingFiles,
+  isHorizonsModpack,
+} from '../../modrinth/horizons-server.constants';
 
 export class JavaServerStrategy implements IServerStrategy {
   readonly edition: ServerEdition = 'JAVA';
@@ -251,6 +256,25 @@ export class JavaServerStrategy implements IServerStrategy {
       const { modpack, version } = resolveModrinthModpackEnv(config);
       env['MODRINTH_MODPACK'] = modpack;
       if (version) env['MODRINTH_VERSION'] = version;
+      if (config.modrinthLoader) env['MODRINTH_LOADER'] = config.modrinthLoader;
+      if (config.fabricLoaderVersion) env['FABRIC_LOADER_VERSION'] = config.fabricLoaderVersion;
+      env['VERSION'] = String(config.minecraftVersion || '1.20.1');
+
+      const excludeFiles =
+        config.modrinthExcludeFiles ||
+        (isHorizonsModpack(modpack) ? getHorizonsModrinthExcludeFiles() : '');
+      if (excludeFiles) {
+        env['MODRINTH_EXCLUDE_FILES'] = excludeFiles;
+      }
+      if (config.modrinthForceSynchronize || excludeFiles) {
+        env['MODRINTH_FORCE_SYNCHRONIZE'] = 'true';
+      }
+      const ignoreMissing =
+        config.modrinthIgnoreMissingFiles ||
+        (isHorizonsModpack(modpack) ? getHorizonsModrinthIgnoreMissingFiles() : '');
+      if (ignoreMissing) {
+        env['MODRINTH_IGNORE_MISSING_FILES'] = ignoreMissing;
+      }
     }
   }
 
