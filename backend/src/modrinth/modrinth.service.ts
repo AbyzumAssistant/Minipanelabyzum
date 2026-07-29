@@ -18,6 +18,12 @@ import {
   PAPER_PLUGIN_CATALOG,
   PAPER_CATEGORY_SEARCH,
 } from './paper-plugin-catalog';
+import { FilesService } from '../files/files.service';
+import {
+  getHorizonsModrinthExcludeFiles,
+  HORIZONS_SERVER_MOD_EXCLUDES,
+  isHorizonsModpack,
+} from './horizons-server.constants';
 
 export interface NormalizedModSearchResult {
   provider: 'curseforge' | 'modrinth';
@@ -303,7 +309,10 @@ export class ModrinthService {
   private readonly MODRINTH_API_BASE = 'https://api.modrinth.com/v2';
   private readonly KNOWN_LOADERS = ['forge', 'neoforge', 'fabric', 'quilt'];
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly filesService: FilesService,
+  ) {
     this.apiClient = axios.create({
       baseURL: this.MODRINTH_API_BASE,
       timeout: 15000,
@@ -1853,5 +1862,46 @@ export class ModrinthService {
     });
 
     return manifest;
+  }
+
+  async pruneHorizonsServerModExcludes(serverId: string): Promise<string[]> {
+    const removed: string[] = [];
+
+    let modFiles: Awaited<ReturnType<FilesService['listFiles']>>;
+    try {
+      modFiles = await this.filesService.listFiles(serverId, 'mods');
+    } catch {
+      return removed;
+    }
+
+    for (const file of modFiles) {
+      if (file.isDirectory) continue;
+      if (!HORIZONS_SERVER_MOD_EXCLUDES.some((pattern) => file.name.includes(pattern))) {
+        continue;
+      }
+
+      try {
+        await this.filesService.deleteFile(serverId, `mods/${file.name}`);
+        removed.push(file.name);
+      } catch {
+        // Ignore missing files between list and delete.
+      }
+    }
+
+    return removed;
+  }
+
+  getHorizonsServerDockerModrinthConfig(): {
+    modrinthExcludeFiles: string;
+    modrinthForceSynchronize: boolean;
+  } {
+    return {
+      modrinthExcludeFiles: getHorizonsModrinthExcludeFiles(),
+      modrinthForceSynchronize: true,
+    };
+  }
+
+  isHorizonsModpackRef(modpack?: string): boolean {
+    return isHorizonsModpack(modpack);
   }
 }

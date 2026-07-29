@@ -191,6 +191,8 @@ export const ModDeployTab: FC<ModDeployTabProps> = ({ serverId, config, updateCo
       if (saved.modrinthProjects) {
         updateConfig('modrinthProjects', saved.modrinthProjects);
       }
+      updateConfig('modrinthExcludeFiles', 'BetterTrims');
+      updateConfig('modrinthForceSynchronize', true);
 
       const { status } = await getServerStatus(serverId);
       if (status === 'running' || status === 'starting') {

@@ -456,6 +456,14 @@ export class ServerConfigDto {
   @IsOptional()
   modrinthModpackVersion?: string;
 
+  @IsString()
+  @IsOptional()
+  modrinthExcludeFiles?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  modrinthForceSynchronize?: boolean;
+
   // GTNH specific
   @IsString()
   @IsOptional()

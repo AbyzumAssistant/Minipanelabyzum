@@ -31,6 +31,7 @@ export class ModrinthController {
 
     if (source.modpackSlug) {
       const isHorizons = source.profile === 'horizons' || source.modpackSlug === 'horizons1';
+      const horizonsDocker = isHorizons ? this.modrinthService.getHorizonsServerDockerModrinthConfig() : null;
       await this.dockerComposeService.updateServerConfig(serverId, {
         serverType: 'MODRINTH',
         modrinthModpack: source.modpackSlug,
@@ -45,7 +46,12 @@ export class ModrinthController {
         motd: isHorizons ? 'mcabyzum · Horizons' : `abyzumMC ${source.modpackTitle ?? source.modpackSlug}`,
         modrinthProjects: source.modrinthProjects || '',
         modrinthDownloadDependencies: 'required',
+        ...(horizonsDocker ?? {}),
       });
+
+      if (isHorizons) {
+        await this.modrinthService.pruneHorizonsServerModExcludes(serverId);
+      }
       return;
     }
 

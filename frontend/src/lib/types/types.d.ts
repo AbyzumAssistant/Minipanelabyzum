@@ -180,6 +180,8 @@ export interface ServerConfig {
 
   modrinthModpack?: string;
   modrinthModpackVersion?: string;
+  modrinthExcludeFiles?: string;
+  modrinthForceSynchronize?: boolean;
 
   // GTNH specific
   gtnhPackVersion?: string;

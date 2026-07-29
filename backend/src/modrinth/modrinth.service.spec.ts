@@ -13,7 +13,10 @@ describe('ModrinthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (axios.create as jest.Mock).mockReturnValue(mockClient);
-    service = new ModrinthService();
+    service = new ModrinthService(
+      { get: jest.fn().mockReturnValue('.') } as never,
+      { listFiles: jest.fn().mockResolvedValue([]), deleteFile: jest.fn() } as never,
+    );
   });
 
   it('searchMods should return normalized compatible results', async () => {
