@@ -23,6 +23,8 @@ export const HORIZONS_PROFILE = {
   onlineMode: false,
   enableRcon: true,
   port: '25569',
+  modrinthExcludeFiles: 'BetterTrims',
+  modrinthForceSynchronize: true,
 };
 
 export function applyHorizonsDefaults(config: Partial<ServerConfig>): ServerConfig {

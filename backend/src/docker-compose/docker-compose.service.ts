@@ -10,6 +10,7 @@ import { ServerStrategyFactory } from 'src/server-management/strategies';
 import { resolveModrinthModpackEnv } from 'src/server-management/utils/modrinth-modpack.util';
 import {
   getHorizonsModrinthExcludeFiles,
+  HORIZONS_SERVER_MOD_EXCLUDES,
   isHorizonsModpack,
 } from 'src/modrinth/horizons-server.constants';
 
@@ -948,7 +949,68 @@ export class DockerComposeService {
 
     await this.generateDockerComposeFile(updatedConfig, proxyEnabled);
     await this.syncOfflineServerProperties(id);
+
+    if (this.isHorizonsServerConfig(updatedConfig)) {
+      await this.pruneHorizonsServerMods(id);
+    }
+
     return updatedConfig;
+  }
+
+  async ensureHorizonsServerReadiness(serverId: string, proxyEnabled = false): Promise<void> {
+    const config = await this.loadServerConfigFromDockerCompose(serverId);
+    if (!this.isHorizonsServerConfig(config)) {
+      return;
+    }
+
+    const removed = await this.pruneHorizonsServerMods(serverId);
+    if (removed.length > 0) {
+      this.logger.log(`Horizons ${serverId}: eliminados mods de servidor ${removed.join(', ')}`);
+    }
+
+    const expectedExclude = getHorizonsModrinthExcludeFiles();
+    const needsComposeUpdate =
+      config.modrinthExcludeFiles !== expectedExclude || !config.modrinthForceSynchronize;
+
+    if (needsComposeUpdate) {
+      await this.updateServerConfig(
+        serverId,
+        {
+          modrinthExcludeFiles: expectedExclude,
+          modrinthForceSynchronize: true,
+        },
+        proxyEnabled,
+      );
+    }
+  }
+
+  private isHorizonsServerConfig(config: ServerConfig): boolean {
+    if (config.serverType !== 'MODRINTH') {
+      return false;
+    }
+    const { modpack } = resolveModrinthModpackEnv(config);
+    return isHorizonsModpack(modpack);
+  }
+
+  async pruneHorizonsServerMods(serverId: string): Promise<string[]> {
+    const modsDir = path.join(this.getMcDataPath(serverId), 'mods');
+    if (!(await fs.pathExists(modsDir))) {
+      return [];
+    }
+
+    const entries = await fs.readdir(modsDir);
+    const removed: string[] = [];
+
+    for (const name of entries) {
+      if (!HORIZONS_SERVER_MOD_EXCLUDES.some((pattern) => name.includes(pattern))) {
+        continue;
+      }
+
+      await fs.remove(path.join(modsDir, name));
+      removed.push(name);
+    }
+
+    return removed;
   }
 
   private applyForgeOfflineEnv(environment: Record<string, string>, config: ServerConfig): void {

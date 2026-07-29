@@ -50,7 +50,7 @@ export class ModrinthController {
       });
 
       if (isHorizons) {
-        await this.modrinthService.pruneHorizonsServerModExcludes(serverId);
+        await this.dockerComposeService.ensureHorizonsServerReadiness(serverId);
       }
       return;
     }
