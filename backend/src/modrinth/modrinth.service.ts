@@ -25,6 +25,7 @@ import {
   getHorizonsModrinthExcludeFiles,
   getHorizonsModrinthIgnoreMissingFiles,
   HORIZONS_MODPACK_SLUG,
+  HORIZONS_SERVER_PORT,
   isHorizonsModpack,
   shouldPruneHorizonsServerMod,
 } from './horizons-server.constants';
@@ -1492,8 +1493,15 @@ export class ModrinthService {
   }
 
   private async resolveEffectiveServerPort(serverId: string, fallback: number): Promise<number> {
+    if (fallback === HORIZONS_SERVER_PORT) {
+      return HORIZONS_SERVER_PORT;
+    }
     try {
       const config = await this.dockerComposeService.getServerConfig(serverId);
+      const { modpack } = resolveModrinthModpackEnv(config ?? {});
+      if (isHorizonsModpack(modpack)) {
+        return HORIZONS_SERVER_PORT;
+      }
       const parsed = Number.parseInt(config?.port ?? '', 10);
       if (Number.isFinite(parsed) && parsed > 0) {
         return parsed;
@@ -1523,7 +1531,10 @@ export class ModrinthService {
       return manifest;
     }
 
-    const port = await this.resolveEffectiveServerPort(serverId, manifest.server.port);
+    const port =
+      manifest.profile === 'horizons' || manifest.modpackSlug === HORIZONS_MODPACK_SLUG
+        ? HORIZONS_SERVER_PORT
+        : await this.resolveEffectiveServerPort(serverId, manifest.server.port);
     if (port === manifest.server.port) {
       return manifest;
     }
@@ -1691,41 +1702,67 @@ export class ModrinthService {
       return current;
     }
 
-    const serverConfig = await this.dockerComposeService.getServerConfig(serverId);
-    if (!serverConfig) {
-      throw new HttpException(
-        'Publica mods y sincroniza el launcher antes de construir el instalador.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const { modpack, version } = resolveModrinthModpackEnv(serverConfig);
-    const slug = (modpack || '').trim();
-    if (!slug || slug.includes('://') || slug.toLowerCase().endsWith('.mrpack')) {
-      throw new HttpException(
-        'Publica mods y sincroniza el launcher antes de construir el instalador.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const host = this.resolveConnectHost(
-      serverConfig.proxyHostname || process.env.NEXT_PUBLIC_MC_SERVER_HOST,
-    );
-    const port = await this.resolveEffectiveServerPort(
-      serverId,
-      Number.parseInt(serverConfig.port || '25569', 10),
-    );
-
+    const target = await this.resolveLauncherBootstrapTarget(serverId);
     return this.publishModpackDeploy({
       serverId,
-      slug: isHorizonsModpack(slug) ? HORIZONS_MODPACK_SLUG : slug,
-      versionId: version,
-      serverHost: host,
-      serverPort: port,
-      serverName: serverConfig.serverName || serverId,
+      slug: target.slug,
+      versionId: target.versionId,
+      serverHost: target.serverHost,
+      serverPort: target.serverPort,
+      serverName: target.serverName,
       lockClientResourcePacks: true,
-      profile: isHorizonsModpack(slug) ? 'horizons' : undefined,
+      profile: isHorizonsModpack(target.slug) ? 'horizons' : undefined,
     });
+  }
+
+  private async resolveLauncherBootstrapTarget(serverId: string): Promise<{
+    slug: string;
+    versionId?: string;
+    serverHost: string;
+    serverPort: number;
+    serverName: string;
+  }> {
+    const serverConfig = await this.dockerComposeService.getServerConfig(serverId);
+    const defaultPort = Number.parseInt(
+      process.env.DEFAULT_MC_SERVER_PORT || String(HORIZONS_SERVER_PORT),
+      10,
+    );
+    const serverHost = this.resolveConnectHost(
+      serverConfig?.proxyHostname || process.env.NEXT_PUBLIC_MC_SERVER_HOST,
+    );
+    let serverPort = serverConfig
+      ? await this.resolveEffectiveServerPort(
+          serverId,
+          Number.parseInt(serverConfig.port || String(defaultPort), 10),
+        )
+      : defaultPort;
+    const serverName = serverConfig?.serverName || serverId;
+
+    if (serverConfig) {
+      const { modpack, version } = resolveModrinthModpackEnv(serverConfig);
+      const slug = (modpack || '').trim();
+      if (slug && !slug.includes('://') && !slug.toLowerCase().endsWith('.mrpack')) {
+        const resolvedSlug = isHorizonsModpack(slug) ? HORIZONS_MODPACK_SLUG : slug;
+        if (isHorizonsModpack(resolvedSlug)) {
+          serverPort = HORIZONS_SERVER_PORT;
+        }
+        return {
+          slug: resolvedSlug,
+          versionId: version,
+          serverHost,
+          serverPort,
+          serverName,
+        };
+      }
+    }
+
+    return {
+      slug: HORIZONS_MODPACK_SLUG,
+      versionId: undefined,
+      serverHost,
+      serverPort: HORIZONS_SERVER_PORT,
+      serverName,
+    };
   }
 
   async openLauncherPackStream(

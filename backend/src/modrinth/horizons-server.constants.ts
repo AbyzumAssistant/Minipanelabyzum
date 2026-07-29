@@ -1,6 +1,7 @@
 import { parseModrinthModpackRef } from '../server-management/utils/modrinth-modpack.util';
 
 export const HORIZONS_MODPACK_SLUG = 'horizons1';
+export const HORIZONS_SERVER_PORT = 25569;
 
 /**
  * Fragmentos del nombre del jar (minúsculas; MODRINTH_EXCLUDE_FILES usa partial match).

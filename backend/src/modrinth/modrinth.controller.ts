@@ -308,6 +308,48 @@ export class ModrinthController {
   }
 
   @Public()
+  @Post('deploy/:serverId/launcher/prepare')
+  async prepareLauncher(@Param('serverId') serverId: string) {
+    const panelUrl = process.env.FRONTEND_URL;
+    let manifest = await this.modrinthService.ensureDeployManifestReady(serverId);
+    const isHorizons = manifest.profile === 'horizons' || manifest.modpackSlug === 'horizons1';
+
+    let serverStarted = false;
+    let startMessage: string | undefined;
+    if (isHorizons && manifest.mods?.length) {
+      try {
+        const status = await this.serverManagementService.getServerStatus(serverId);
+        if (status === 'running' || status === 'starting') {
+          await this.serverManagementService.stopServer(serverId);
+        }
+        await this.syncManifestToServer(serverId, manifest);
+        const startResult = await this.serverManagementService.startServer(serverId);
+        serverStarted = startResult.success;
+        startMessage = startResult.message;
+        manifest = (await this.modrinthService.refreshManifestServerPort(serverId)) ?? manifest;
+      } catch (error) {
+        startMessage = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    const status = await this.modrinthService.buildLauncherPack(serverId, panelUrl);
+    const latest = (await this.modrinthService.getDeployManifest(serverId)) ?? manifest;
+    return {
+      serverId,
+      modCount: latest.mods?.length ?? 0,
+      gameVersion: latest.gameVersion,
+      loader: latest.loader,
+      profile: latest.profile,
+      server: latest.server,
+      launcherRevision: latest.launcherRevision,
+      serverStarted,
+      ...(startMessage ? { startMessage } : {}),
+      launcher: status,
+      downloadUrl: `/modrinth/deploy/${serverId}/launcher/download`,
+    };
+  }
+
+  @Public()
   @Get('deploy/:serverId/launcher/download')
   async downloadLauncherPack(@Param('serverId') serverId: string, @Res() res: Response): Promise<void> {
     const panelUrl = process.env.FRONTEND_URL;
