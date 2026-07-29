@@ -513,7 +513,8 @@ class Api:
         command = minecraft_launcher_lib.command.get_minecraft_command(
             launch_version, mc_dir, options
         )
-        self._write_server_lock(mc_dir, server)
+        write_mod_config(Path(mc_dir), server, auto_join=True)
+        self._write_launcher_options(mc_dir)
 
         loader_label = "Fabric abyzumMC" if self._uses_fabric() else "Forge Abyzum"
         self._emit("mcabyzum:status", {"text": f"Abriendo {loader_label} ({username})…"})
@@ -557,9 +558,7 @@ class Api:
                 assert launch_version is not None
                 self.config = merge_deploy_config(self.config)
                 server = self.config["server"]
-                if not self._uses_fabric():
-                    write_mod_config(minecraft_dir(), server, auto_join=True)
-                    refresh_game_server_config(self.config)
+                write_mod_config(minecraft_dir(), server, auto_join=True)
                 java_path = self._resolve_java_path(version, mc_dir)
                 self._launch_game(
                     launch_version, mc_dir, username, player_uuid, java_path, server
@@ -705,20 +704,7 @@ class Api:
         finally:
             self._busy = False
 
-    def _write_server_lock(self, mc_dir: str, server: dict) -> None:
-        lock = {
-            "forced": True,
-            "servers": [
-                {
-                    "name": server["name"],
-                    "ip": f"{server['host']}:{server['port']}",
-                }
-            ],
-        }
-        Path(mc_dir, "mcabyzum-server.json").write_text(
-            json.dumps(lock, indent=2), encoding="utf-8"
-        )
-
+    def _write_launcher_options(self, mc_dir: str) -> None:
         options_path = Path(mc_dir, "options.txt")
         lines = []
         if options_path.exists():

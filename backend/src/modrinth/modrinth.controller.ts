@@ -222,13 +222,54 @@ export class ModrinthController {
     try {
       const isHorizons = manifest.profile === 'horizons' || manifest.modpackSlug === 'horizons1';
       if (isHorizons) {
-        await this.serverManagementService.stopServer(serverId);
+        const status = await this.serverManagementService.getServerStatus(serverId);
+        if (status === 'running' || status === 'starting') {
+          await this.serverManagementService.stopServer(serverId);
+        }
       }
 
       await this.syncManifestToServer(serverId, manifest);
       await this.dockerComposeService.updateServerConfig(serverId, {
         serverName: body.serverName,
       });
+
+      const startResult = await this.serverManagementService.startServer(serverId);
+      await this.modrinthService.refreshManifestServerPort(serverId);
+
+      let launcherBuilt = false;
+      let launcherError: string | undefined;
+      if (isHorizons) {
+        try {
+          const launcherStatus = await this.modrinthService.buildLauncherPack(
+            serverId,
+            process.env.FRONTEND_URL,
+          );
+          launcherBuilt = launcherStatus.built;
+        } catch (error) {
+          launcherError = error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        serverId: manifest.serverId,
+        profile: manifest.profile,
+        modpackSlug: manifest.modpackSlug,
+        modpackVersion: manifest.modpackVersion,
+        modpackTitle: manifest.modpackTitle,
+        gameVersion: manifest.gameVersion,
+        loader: manifest.loader,
+        fabricLoaderVersion: manifest.fabricLoaderVersion,
+        modrinthProjects: manifest.modrinthProjects,
+        modCount: manifest.mods.length,
+        updatedAt: manifest.updatedAt,
+        server: manifest.server,
+        lockClientResourcePacks: manifest.lockClientResourcePacks,
+        launcherRevision: manifest.launcherRevision,
+        serverStarted: startResult.success,
+        startMessage: startResult.message,
+        launcherBuilt,
+        ...(launcherError ? { launcherError } : {}),
+      };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new HttpException(
@@ -236,8 +277,6 @@ export class ModrinthController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
-    return manifest;
   }
 
   @Post('deploy/:serverId/launcher/sync')

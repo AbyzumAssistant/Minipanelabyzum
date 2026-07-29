@@ -16,6 +16,7 @@ describe('ModrinthService', () => {
     service = new ModrinthService(
       { get: jest.fn().mockReturnValue('.') } as never,
       { listFiles: jest.fn().mockResolvedValue([]), deleteFile: jest.fn() } as never,
+      { getServerConfig: jest.fn().mockResolvedValue(null) } as never,
     );
   });
 

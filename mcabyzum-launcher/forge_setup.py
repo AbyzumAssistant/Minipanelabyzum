@@ -40,6 +40,8 @@ def find_bundled_mod(bundle_root: Path) -> Path | None:
 
 
 def write_mod_config(mc_dir: Path, server: dict, auto_join: bool = True) -> None:
+    from server_list import write_server_lock, write_servers_dat
+
     cfg_dir = mc_dir / "config"
     cfg_dir.mkdir(parents=True, exist_ok=True)
     data = {
@@ -49,6 +51,8 @@ def write_mod_config(mc_dir: Path, server: dict, auto_join: bool = True) -> None
         "autoJoin": auto_join,
     }
     (cfg_dir / "mcabyzum.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+    write_servers_dat(mc_dir, server)
+    write_server_lock(mc_dir, server)
 
 
 def ensure_forge_and_mod(

@@ -19,9 +19,11 @@ import {
   PAPER_CATEGORY_SEARCH,
 } from './paper-plugin-catalog';
 import { FilesService } from '../files/files.service';
+import { DockerComposeService } from '../docker-compose/docker-compose.service';
 import {
   getHorizonsModrinthExcludeFiles,
   getHorizonsModrinthIgnoreMissingFiles,
+  HORIZONS_MODPACK_SLUG,
   isHorizonsModpack,
   matchesHorizonsServerModExclude,
 } from './horizons-server.constants';
@@ -313,6 +315,7 @@ export class ModrinthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly filesService: FilesService,
+    private readonly dockerComposeService: DockerComposeService,
   ) {
     this.apiClient = axios.create({
       baseURL: this.MODRINTH_API_BASE,
@@ -731,6 +734,12 @@ export class ModrinthService {
   }): Promise<ModDeployManifest> {
     const existing = await this.getDeployManifest(input.serverId);
     const nextRevision = (existing?.launcherRevision ?? 0) + 1;
+    const server = await this.buildManifestServerInfo(
+      input.serverId,
+      input.serverHost,
+      input.serverPort,
+      input.serverName,
+    );
 
     if (existing?.modpackSlug && existing.mods.length > 0) {
       return this.saveDeployManifest({
@@ -738,11 +747,7 @@ export class ModrinthService {
         updatedAt: new Date().toISOString(),
         launcherRevision: nextRevision,
         lockClientResourcePacks: input.lockClientResourcePacks ?? existing.lockClientResourcePacks,
-        server: {
-          host: this.resolveConnectHost(input.serverHost),
-          port: input.serverPort,
-          name: input.serverName,
-        },
+        server,
         resourcePack:
           input.resourcePackUrl
             ? {
@@ -760,6 +765,45 @@ export class ModrinthService {
       throw new HttpException('Se requiere al menos un mod para sincronizar el launcher', HttpStatus.BAD_REQUEST);
     }
 
+    if (slugs.length === 1 && slugs[0] === HORIZONS_MODPACK_SLUG) {
+      const resolved = await this.resolveModpack({ slug: slugs[0] });
+      const enriched = await this.enrichModpackWithServerDependencies(
+        resolved.mods,
+        resolved.gameVersion,
+        resolved.loader,
+      );
+
+      return this.saveDeployManifest({
+        serverId: input.serverId,
+        gameVersion: resolved.gameVersion,
+        loader: resolved.loader,
+        updatedAt: new Date().toISOString(),
+        mods: enriched.mods,
+        modrinthProjects: enriched.serverExtraProjects,
+        resourcePacks: resolved.resourcePacks,
+        resourcePack: resolved.primaryResourcePack
+          ? {
+              url: resolved.primaryResourcePack.downloadUrl,
+              sha1: resolved.primaryResourcePack.sha1,
+              name: resolved.primaryResourcePack.name,
+              required: true,
+            }
+          : undefined,
+        configFiles: resolved.configFiles,
+        profile: 'horizons',
+        modpackSlug: resolved.project.slug,
+        modpackTitle: resolved.project.title,
+        modpackVersion: resolved.version.version_number,
+        fabricLoaderVersion: resolved.fabricLoaderVersion,
+        shaderPackUrl: 'https://gist.github.com/Steveplays28/52db568f297ded527da56dbe6deeec0e',
+        shaderPackNote:
+          'Los shaders Bliss compatibles con Distant Horizons no vienen en Modrinth. Descárgalos desde el enlace e instálalos en shaderpacks/.',
+        lockClientResourcePacks: input.lockClientResourcePacks ?? true,
+        launcherRevision: nextRevision,
+        server,
+      });
+    }
+
     const resolved = await this.resolveModsWithDependencies({ slugs });
 
     return this.saveDeployManifest({
@@ -772,11 +816,7 @@ export class ModrinthService {
       lockClientResourcePacks: input.lockClientResourcePacks ?? true,
       launcherRevision: nextRevision,
       forgeBuild: input.forgeBuild ?? '43.3.0',
-      server: {
-        host: this.resolveConnectHost(input.serverHost),
-        port: input.serverPort,
-        name: input.serverName,
-      },
+      server,
       resourcePack: input.resourcePackUrl
         ? {
             url: input.resourcePackUrl,
@@ -1450,6 +1490,53 @@ export class ModrinthService {
     return manifestHost || publicHost || 'localhost';
   }
 
+  private async resolveEffectiveServerPort(serverId: string, fallback: number): Promise<number> {
+    try {
+      const config = await this.dockerComposeService.getServerConfig(serverId);
+      const parsed = Number.parseInt(config?.port ?? '', 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    } catch {
+      // fall back to caller-provided port
+    }
+    return fallback;
+  }
+
+  private async buildManifestServerInfo(
+    serverId: string,
+    serverHost: string,
+    serverPort: number,
+    serverName: string,
+  ): Promise<LauncherServerInfo> {
+    return {
+      host: this.resolveConnectHost(serverHost),
+      port: await this.resolveEffectiveServerPort(serverId, serverPort),
+      name: serverName,
+    };
+  }
+
+  async refreshManifestServerPort(serverId: string): Promise<ModDeployManifest | null> {
+    const manifest = await this.getDeployManifest(serverId);
+    if (!manifest?.server) {
+      return manifest;
+    }
+
+    const port = await this.resolveEffectiveServerPort(serverId, manifest.server.port);
+    if (port === manifest.server.port) {
+      return manifest;
+    }
+
+    return this.saveDeployManifest({
+      ...manifest,
+      updatedAt: new Date().toISOString(),
+      server: {
+        ...manifest.server,
+        port,
+      },
+    });
+  }
+
   private resolveLauncherConnectHost(manifest: ModDeployManifest): string {
     return this.resolveConnectHost(manifest.server?.host);
   }
@@ -1546,7 +1633,8 @@ export class ModrinthService {
   }
 
   async buildLauncherPack(serverId: string, panelUrl?: string): Promise<LauncherBuildStatus> {
-    const manifest = await this.getDeployManifest(serverId);
+    const manifest =
+      (await this.refreshManifestServerPort(serverId)) ?? (await this.getDeployManifest(serverId));
     if (!manifest || (manifest.mods?.length ?? 0) === 0) {
       throw new HttpException(
         'Publica mods y sincroniza el launcher antes de construir el instalador.',
@@ -1829,6 +1917,13 @@ export class ModrinthService {
         ? 'Los shaders Bliss compatibles con Distant Horizons no vienen en Modrinth. Descárgalos desde el enlace e instálalos en shaderpacks/.'
         : undefined;
 
+    const server = await this.buildManifestServerInfo(
+      input.serverId,
+      input.serverHost,
+      input.serverPort,
+      input.serverName,
+    );
+
     const manifest = await this.saveDeployManifest({
       serverId: input.serverId,
       gameVersion: resolved.gameVersion,
@@ -1855,11 +1950,7 @@ export class ModrinthService {
       fabricLoaderVersion: resolved.fabricLoaderVersion,
       lockClientResourcePacks: input.lockClientResourcePacks ?? true,
       launcherRevision: nextRevision,
-      server: {
-        host: this.resolveConnectHost(input.serverHost),
-        port: input.serverPort,
-        name: input.serverName,
-      },
+      server,
     });
 
     return manifest;
