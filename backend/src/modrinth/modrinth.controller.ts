@@ -48,6 +48,7 @@ export class ModrinthController {
         motd: isHorizons ? 'mcabyzum · Horizons' : `abyzumMC ${source.modpackTitle ?? source.modpackSlug}`,
         modrinthProjects: source.modrinthProjects || '',
         modrinthDownloadDependencies: 'required',
+        ...(isHorizons ? { port: '25569', dockerImage: 'java17', useAikarFlags: true } : {}),
         ...(horizonsDocker ?? {}),
       });
 

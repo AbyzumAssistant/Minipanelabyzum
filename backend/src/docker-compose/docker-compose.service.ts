@@ -1237,6 +1237,12 @@ export class DockerComposeService {
       if (config.modrinthForceSynchronize || excludeFiles) {
         env['MODRINTH_FORCE_SYNCHRONIZE'] = 'true';
       }
+      const ignoreMissing =
+        config.modrinthIgnoreMissingFiles ||
+        (isHorizonsModpack(modpack) ? getHorizonsModrinthIgnoreMissingFiles() : '');
+      if (ignoreMissing) {
+        env['MODRINTH_IGNORE_MISSING_FILES'] = ignoreMissing;
+      }
     } else if (config.modrinthLoader) {
       env['MODRINTH_LOADER'] = config.modrinthLoader;
     }
@@ -1356,6 +1362,53 @@ export class DockerComposeService {
     Object.assign(env, customVars);
   }
 
+  private parseVolumeMount(volume: string): { host: string; target: string; options: string[] } | null {
+    const trimmed = volume.trim();
+    if (!trimmed) return null;
+
+    const separatorIndex = trimmed.indexOf(':/');
+    if (separatorIndex >= 0) {
+      const host = trimmed.slice(0, separatorIndex);
+      const rest = trimmed.slice(separatorIndex + 1);
+      const optionIndex = rest.indexOf(':');
+      if (optionIndex < 0) {
+        return { host, target: rest, options: [] };
+      }
+
+      return {
+        host,
+        target: rest.slice(0, optionIndex),
+        options: rest
+          .slice(optionIndex + 1)
+          .split(',')
+          .map((option) => option.trim())
+          .filter(Boolean),
+      };
+    }
+
+    const parts = trimmed.split(':');
+    if (parts.length < 2) return null;
+
+    return {
+      host: parts[0],
+      target: parts[1],
+      options: parts
+        .slice(2)
+        .flatMap((part) => part.split(','))
+        .map((option) => option.trim())
+        .filter(Boolean),
+    };
+  }
+
+  private formatVolumeMount(host: string, target: string, options: string[] = []): string {
+    const normalizedOptions = options.filter((option) => option && option !== 'rw' && option !== 'z' && option !== 'Z');
+    if (normalizedOptions.length === 0) {
+      return `${host}:${target}`;
+    }
+
+    return `${host}:${target}:${normalizedOptions.join(':')}`;
+  }
+
   private parseVolumes(config: ServerConfig): string[] {
     const volumes = config.dockerVolumes
       .split('\n')
@@ -1363,10 +1416,11 @@ export class DockerComposeService {
       .map((line) => {
         const volume = line.trim();
         if (volume.startsWith('./')) {
-          const [hostPath, ...containerParts] = volume.split(':');
-          const containerPath = containerParts.join(':');
-          const absoluteHostPath = path.join(this.BASE_DIR, 'servers', config.id, hostPath.substring(2));
-          return `${absoluteHostPath}:${containerPath}`;
+          const mount = this.parseVolumeMount(volume);
+          if (!mount) return volume;
+
+          const absoluteHostPath = path.join(this.BASE_DIR, 'servers', config.id, mount.host.substring(2));
+          return this.formatVolumeMount(absoluteHostPath, mount.target, mount.options);
         }
         return volume;
       })
@@ -1378,51 +1432,74 @@ export class DockerComposeService {
       const hasGlobalWorldsMount = volumes.some((volume) => this.hasMountTarget(volume, '/data/.world-library/global'));
 
       if (!hasLocalWorldsMount) {
-        volumes.push(`${path.join(this.BASE_DIR, 'servers', config.id, 'worlds')}:/data/.world-library/local:ro`);
+        volumes.push(
+          this.formatVolumeMount(
+            path.join(this.BASE_DIR, 'servers', config.id, 'worlds'),
+            '/data/.world-library/local',
+            ['ro'],
+          ),
+        );
       }
 
       if (!hasGlobalWorldsMount) {
-        volumes.push(`${path.join(this.BASE_DIR, 'servers', '.world', 'worlds')}:/data/.world-library/global:ro`);
+        volumes.push(
+          this.formatVolumeMount(
+            path.join(this.BASE_DIR, 'servers', '.world', 'worlds'),
+            '/data/.world-library/global',
+            ['ro'],
+          ),
+        );
       }
     }
 
-    return volumes;
+    const seen = new Set<string>();
+    return volumes.filter((volume) => {
+      const mount = this.parseVolumeMount(volume);
+      const key = mount ? `${mount.target}|${mount.host}` : volume;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   private enforceReadOnlyWorldLibraryMount(volume: string): string {
-    const parts = volume.split(':');
-    if (parts.length < 2) return volume;
+    const mount = this.parseVolumeMount(volume);
+    if (!mount) return volume;
 
-    const target = parts[1];
     const isWorldLibraryMount =
-      target === '/data/.world-library/local' ||
-      target === '/worlds/local' ||
-      target === '/worlds' ||
-      target === '/data/.world-library/global' ||
-      target === '/worlds/global';
+      mount.target === '/data/.world-library/local' ||
+      mount.target === '/worlds/local' ||
+      mount.target === '/worlds' ||
+      mount.target === '/data/.world-library/global' ||
+      mount.target === '/worlds/global';
 
     if (!isWorldLibraryMount) return volume;
 
-    const host = parts[0];
-    const options = parts.slice(2).filter((option) => option && option !== 'rw' && option !== 'z' && option !== 'Z');
+    const options = mount.options.filter((option) => option && option !== 'rw' && option !== 'z' && option !== 'Z');
     if (!options.includes('ro')) {
       options.push('ro');
     }
 
-    return [host, target, ...options].join(':');
+    return this.formatVolumeMount(mount.host, mount.target, options);
   }
 
   private hasMountTarget(volume: string, target: string): boolean {
-    const parts = volume.split(':');
-    if (parts.length < 2) return false;
-    const mountTarget = parts[1];
+    const mount = this.parseVolumeMount(volume);
+    if (!mount) return false;
+
     if (target === '/data/.world-library/local') {
-      return mountTarget === '/data/.world-library/local' || mountTarget === '/worlds/local' || mountTarget === '/worlds';
+      return (
+        mount.target === '/data/.world-library/local' ||
+        mount.target === '/worlds/local' ||
+        mount.target === '/worlds'
+      );
     }
     if (target === '/data/.world-library/global') {
-      return mountTarget === '/data/.world-library/global' || mountTarget === '/worlds/global';
+      return mount.target === '/data/.world-library/global' || mount.target === '/worlds/global';
     }
-    return mountTarget === target;
+    return mount.target === target;
   }
 
   async reconcileServerPortBeforeStart(serverId: string): Promise<{ port: string; changed: boolean }> {

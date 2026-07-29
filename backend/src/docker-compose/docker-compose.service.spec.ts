@@ -418,5 +418,26 @@ describe('DockerComposeService', () => {
       expect(parsed.services.mc.labels['example.label']).toBe('https://example.com/icon.png');
       expect(parsed.services.mc.labels['minepanel.proxy.enabled']).toBe('true');
     });
+
+    it('should not duplicate world-library mounts when dockerVolumes use Windows host paths', async () => {
+      const config = (service as any).createDefaultConfig('windows-volumes');
+      config.dockerVolumes = [
+        'C:\\minepanel\\servers\\windows-volumes\\mc-data:/data',
+        'C:\\minepanel\\servers\\windows-volumes\\modpacks:/modpacks:ro',
+        'C:\\minepanel\\servers\\windows-volumes\\worlds:/data/.world-library/local:ro',
+        'C:\\minepanel\\servers\\.world\\worlds:/data/.world-library/global:ro',
+      ].join('\n');
+
+      await service.generateDockerComposeFile(config, false);
+
+      const writeFileMock = fs.writeFile as unknown as jest.Mock;
+      const [, yamlContent] = writeFileMock.mock.calls[writeFileMock.mock.calls.length - 1];
+      const parsed = yaml.load(yamlContent as string) as any;
+      const worldMounts = (parsed.services.mc.volumes as string[]).filter((volume: string) =>
+        volume.includes('.world-library'),
+      );
+
+      expect(worldMounts).toHaveLength(2);
+    });
   });
 });
